@@ -990,33 +990,16 @@ async function runCourseSearch(query){
   spinner.style.display='block';
   results.style.display='none';
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    const resp=await fetch('/api/search',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        system:`You are a golf course database. When given a course name, search for it and return accurate data. 
-Always respond with ONLY a valid JSON array (no markdown, no explanation) of up to 5 matching courses.
-Each object must have: name, location, city, state, country, courseRating (number, blue/white tees), slopeRating (number), par (number), lat (number), lng (number), website (string or null).
-If you can't find exact data use your best estimate but never invent a course that doesn't exist.
-Example: [{"name":"Pebble Beach Golf Links","location":"Pebble Beach, CA","city":"Pebble Beach","state":"CA","country":"USA","courseRating":74.7,"slopeRating":144,"par":72,"lat":36.5681,"lng":-121.9486,"website":"pebblebeach.com"}]`,
-        messages:[{role:'user',content:`Find golf course: "${query}". Return JSON array of matches.`}]
-      })
+      body:JSON.stringify({query})
     });
     const data=await resp.json();
-    const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    const clean=text.replace(/```json|```/g,'').trim();
-    let courses_found=[];
-    try{courses_found=JSON.parse(clean);}catch(e){
-      // Try to extract JSON array from text
-      const m=clean.match(/\[[\s\S]*\]/);
-      if(m)courses_found=JSON.parse(m[0]);
-    }
-    renderSearchResults(courses_found);
+    if(!resp.ok) throw new Error(data.error||'Search failed');
+    renderSearchResults(data.courses||[]);
   }catch(err){
-    results.innerHTML='<div style="padding:12px 14px;font-size:13px;color:var(--text-secondary);">Search failed — try again or enter details manually.</div>';
+    results.innerHTML=`<div style="padding:12px 14px;font-size:13px;color:var(--text-secondary);">Search failed — try again or fill in the fields below manually.</div>`;
     results.style.display='block';
   }
   spinner.style.display='none';
