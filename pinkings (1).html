@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PinKings</title>
+<meta name="description" content="Track golf courses, compete with friends, earn club points and the Club Cup.">
+<style>
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f3;
+    --bg-tertiary: #eeede9;
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b6b68;
+    --border: rgba(0,0,0,0.12);
+    --border-mid: rgba(0,0,0,0.2);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --green: #1D9E75;
+    --green-light: #E1F5EE;
+    --green-dark: #0F6E56;
+    --blue: #378ADD;
+    --blue-light: #E6F1FB;
+    --blue-dark: #0C447C;
+    --purple: #7F77DD;
+    --purple-light: #EEEDFE;
+    --purple-dark: #3C3489;
+    --amber: #EF9F27;
+    --red: #E24B4A;
+    --red-light: #FCEBEB;
+    --red-dark: #A32D2D;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1c1c1e;
+      --bg-secondary: #2c2c2e;
+      --bg-tertiary: #3a3a3c;
+      --text-primary: #f2f2f7;
+      --text-secondary: #8e8e93;
+      --border: rgba(255,255,255,0.1);
+      --border-mid: rgba(255,255,255,0.2);
+      --green-light: #0a3325;
+      --green-dark: #5DCAA5;
+      --blue-light: #0d2a47;
+      --blue-dark: #85B7EB;
+      --purple-light: #1e1b4b;
+      --purple-dark: #AFA9EC;
+      --red-light: #3b1212;
+      --red-dark: #F09595;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg-tertiary); color: var(--text-primary); min-height: 100vh; }
+  .app { max-width: 780px; margin: 0 auto; padding: 1.25rem 1rem 4rem; }
+  .header { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
+  .logo { width: 32px; height: 32px; background: var(--green); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .header h1 { font-size: 20px; font-weight: 600; flex: 1; color: var(--text-primary); }
+  .notif-btn { position: relative; width: 36px; height: 36px; border-radius: 50%; border: 0.5px solid var(--border); background: var(--bg-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-primary); }
+  .notif-badge { position: absolute; top: 2px; right: 2px; width: 14px; height: 14px; background: var(--red); border-radius: 50%; font-size: 9px; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+  .notif-panel { background: var(--bg-primary); border: 0.5px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 1rem; overflow: hidden; }
+  .notif-panel-hdr { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 0.5px solid var(--border); }
+  .notif-panel-hdr span { font-size: 14px; font-weight: 600; }
+  .notif-item { display: flex; gap: 10px; padding: 10px 14px; border-bottom: 0.5px solid var(--border); }
+  .notif-item:last-child { border-bottom: none; }
+  .notif-item.unread { background: var(--bg-secondary); }
+  .notif-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .notif-text { font-size: 13px; line-height: 1.4; }
+  .notif-time { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .tabs { display: flex; border: 0.5px solid var(--border); border-radius: var(--radius-md); overflow: hidden; margin-bottom: 1.25rem; background: var(--bg-primary); flex-wrap: wrap; }
+  .tab { flex: 1; padding: 9px 4px; font-size: 11px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-secondary); border: none; border-right: 0.5px solid var(--border); border-bottom: 0.5px solid var(--border); transition: background 0.15s; text-align: center; min-width: 55px; }
+  .tab:last-child { border-right: none; }
+  .tab.active { background: var(--bg-secondary); color: var(--text-primary); }
+  .tab:hover:not(.active) { background: var(--bg-secondary); }
+  .section { display: none; }
+  .section.active { display: block; }
+  .card { background: var(--bg-primary); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.1rem 1.25rem; margin-bottom: 10px; }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500; }
+  .field input, .field select, .field textarea { width: 100%; padding: 8px 10px; font-size: 14px; background: var(--bg-secondary); border: 0.5px solid var(--border); border-radius: var(--radius-md); color: var(--text-primary); font-family: var(--font); outline: none; transition: border-color 0.15s; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--green); }
+  .field textarea { resize: vertical; height: 60px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .row4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+  .btn { padding: 9px 18px; border-radius: var(--radius-md); border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: var(--green); color: #fff; transition: opacity 0.15s; font-family: var(--font); }
+  .btn:hover { opacity: 0.85; }
+  .btn-ghost { background: var(--bg-primary); color: var(--text-primary); border: 0.5px solid var(--border-mid); }
+  .btn-danger { background: var(--red-light); color: var(--red-dark); border: 0.5px solid var(--red); }
+  .btn-sm { padding: 4px 10px; font-size: 11px; border-radius: var(--radius-md); border: 0.5px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; font-family: var(--font); font-weight: 500; }
+  .btn-sm:hover { color: var(--text-primary); }
+  .btn-sm-danger { background: var(--red-light); color: var(--red-dark); border-color: var(--red); }
+  .star { font-size: 22px; cursor: pointer; color: var(--text-secondary); user-select: none; }
+  .star.on { color: var(--amber); }
+  .star-row { display: flex; gap: 3px; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: var(--radius-md); font-weight: 600; display: inline-block; }
+  .badge-gold { background: #FAC775; color: #633806; }
+  .badge-green { background: var(--green-light); color: var(--green-dark); }
+  .badge-gray { background: var(--bg-secondary); color: var(--text-secondary); }
+  .badge-blue { background: var(--blue-light); color: var(--blue-dark); }
+  .badge-purple { background: var(--purple-light); color: var(--purple-dark); }
+  .badge-red { background: var(--red-light); color: var(--red-dark); }
+  .course-card { background: var(--bg-primary); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 10px; display: flex; gap: 12px; }
+  .rank-circle { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .r1 { background: #FAC775; color: #633806; }
+  .r2 { background: #D3D1C7; color: #2C2C2A; }
+  .r3 { background: #F0997B; color: #4A1B0C; }
+  .rn { background: var(--bg-secondary); color: var(--text-secondary); }
+  .map-wrap { border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 1rem; position: relative; }
+  .map-wrap svg { display: block; width: 100%; cursor: crosshair; }
+  .map-hint { font-size: 11px; color: var(--text-secondary); padding: 6px 10px; background: var(--bg-secondary); border-top: 0.5px solid var(--border); text-align: center; }
+  .mtooltip { position: absolute; background: var(--bg-primary); border: 0.5px solid var(--border-mid); border-radius: var(--radius-md); padding: 8px 10px; font-size: 12px; pointer-events: none; display: none; z-index: 10; max-width: 200px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 1rem; }
+  .stat { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 12px; }
+  .stat-lbl { font-size: 11px; color: var(--text-secondary); margin-bottom: 3px; font-weight: 500; }
+  .stat-val { font-size: 22px; font-weight: 700; }
+  .bar-outer { background: var(--bg-secondary); border-radius: 4px; height: 5px; width: 100%; margin-top: 3px; }
+  .bar-inner { height: 5px; border-radius: 4px; }
+  .empty { text-align: center; padding: 3rem 1rem; color: var(--text-secondary); font-size: 14px; }
+  .friend-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+  .friend-row:last-child { border-bottom: none; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; color: #fff; }
+  .modal-bg { background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; min-height: 450px; border-radius: var(--radius-lg); margin-bottom: 10px; }
+  .modal { background: var(--bg-primary); border-radius: var(--radius-lg); border: 0.5px solid var(--border); padding: 1.5rem; width: 90%; max-width: 440px; }
+  .modal h2 { font-size: 16px; font-weight: 700; margin-bottom: 1rem; }
+  .modal-acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1rem; }
+  .type-toggle { display: flex; gap: 8px; }
+  .type-btn { flex: 1; padding: 9px 10px; border-radius: var(--radius-md); border: 0.5px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; text-align: center; transition: all 0.15s; font-family: var(--font); }
+  .type-btn.sel-out { background: var(--green-light); border-color: var(--green); color: var(--green-dark); }
+  .type-btn.sel-sim { background: var(--purple-light); border-color: var(--purple); color: var(--purple-dark); }
+  .net-preview { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; border: 0.5px solid var(--green); }
+  .net-preview-val { font-size: 24px; font-weight: 700; color: var(--green); }
+  .net-preview-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
+  .tee-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tee-btn { padding: 5px 12px; border-radius: var(--radius-md); border: 0.5px solid var(--border); font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font); }
+  .lb-toggle { display: flex; border: 0.5px solid var(--border); border-radius: var(--radius-md); overflow: hidden; margin-bottom: 12px; background: var(--bg-primary); }
+  .lb-tab { flex: 1; padding: 8px; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-secondary); border: none; border-right: 0.5px solid var(--border); text-align: center; font-family: var(--font); }
+  .lb-tab:last-child { border-right: none; }
+  .lb-tab.active { background: var(--bg-secondary); color: var(--text-primary); }
+  .profile-avatar { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .club-banner { border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 14px; border: 2px solid; }
+  .club-crest { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+  .club-card { border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 10px; border: 0.5px solid var(--border); background: var(--bg-primary); }
+  .cup-trophy { text-align: left; padding: 1.25rem; border-radius: var(--radius-lg); margin-bottom: 1rem; background: var(--bg-secondary); border: 0.5px solid var(--border); }
+  .setup-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; background: var(--bg-tertiary); }
+  .setup-box { background: var(--bg-primary); border-radius: var(--radius-lg); border: 0.5px solid var(--border); padding: 2rem; width: 100%; max-width: 400px; }
+  .setup-logo { width: 56px; height: 56px; background: var(--green); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; }
+  .setup-title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 4px; }
+  .setup-sub { font-size: 14px; color: var(--text-secondary); text-align: center; margin-bottom: 1.5rem; }
+  .divider { text-align: center; font-size: 12px; color: var(--text-secondary); margin: 12px 0; }
+  .link-btn { color: var(--green); cursor: pointer; font-weight: 600; text-decoration: none; }
+  .reveal-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; background: var(--bg-tertiary); }
+  .reveal-box { background: var(--bg-primary); border-radius: var(--radius-lg); border: 0.5px solid var(--border); padding: 2rem; width: 100%; max-width: 400px; text-align: center; }
+  .spin-text { font-size: 22px; font-weight: 700; min-height: 36px; margin: 1rem 0; transition: opacity 0.08s; }
+  .header-club-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--radius-md); cursor: pointer; white-space: nowrap; }
+  .search-result-item { padding: 10px 14px; cursor: pointer; border-bottom: 0.5px solid var(--border); transition: background 0.1s; }
+  .search-result-item:last-child { border-bottom: none; }
+  .search-result-item:hover { background: var(--bg-secondary); }
+  .search-result-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .search-result-meta { font-size: 12px; color: var(--text-secondary); margin-top:2px; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen">
+  <div class="setup-wrap">
+    <div class="setup-box">
+      <div class="setup-logo">
+        <svg width="28" height="28" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" fill="none" stroke="#fff" stroke-width="1.5"/><line x1="9" y1="2" x2="9" y2="5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="13" x2="9" y2="16" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="9" x2="5" y2="9" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><line x1="13" y1="9" x2="16" y2="9" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="9" r="2" fill="#fff"/></svg>
+      </div>
+      <div class="setup-title">PinKings</div>
+      <div class="setup-sub">Track courses, own titles, earn the Club Cup | PinKings</div>
+
+      <div id="signup-form">
+        <div class="row2">
+          <div class="field"><label>First name</label><input id="s-first" type="text" placeholder="Jack"></div>
+          <div class="field"><label>Last name</label><input id="s-last" type="text" placeholder="Nicklaus"></div>
+        </div>
+        <div class="field"><label>Email</label><input id="s-email" type="email" placeholder="jack@golf.com"></div>
+        <div class="field"><label>Password</label><input id="s-pass" type="password" placeholder="Create a password"></div>
+        <div class="row2">
+          <div class="field"><label>Handicap index</label><input id="s-hcp" type="number" step="0.1" min="0" max="54" placeholder="e.g. 12.4"></div>
+          <div class="field"><label>Home course</label><input id="s-home" type="text" placeholder="Optional"></div>
+        </div>
+        <button class="btn" style="width:100%;padding:11px;font-size:15px;margin-top:4px;" onclick="signUp()">Sign up &amp; join a club</button>
+        <div class="divider">Already have an account? <span class="link-btn" onclick="showLogin()">Log in</span></div>
+      </div>
+
+      <div id="login-form" style="display:none;">
+        <div class="field"><label>Email</label><input id="l-email" type="email" placeholder="jack@golf.com"></div>
+        <div class="field"><label>Password</label><input id="l-pass" type="password" placeholder="Your password"></div>
+        <button class="btn" style="width:100%;padding:11px;font-size:15px;margin-top:4px;" onclick="logIn()">Log in</button>
+        <div class="divider">No account? <span class="link-btn" onclick="showSignup()">Sign up</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CLUB REVEAL SCREEN -->
+<div id="reveal-screen" style="display:none;">
+  <div class="reveal-wrap">
+    <div class="reveal-box">
+      <div style="font-size:14px;color:var(--text-secondary);margin-bottom:4px;">Assigning your club...</div>
+      <div class="spin-text" id="spin-name"></div>
+      <div id="reveal-result" style="display:none;">
+        <div id="reveal-banner"></div>
+        <div id="reveal-desc" style="font-size:13px;color:var(--text-secondary);margin:10px 0 1.5rem;"></div>
+        <button class="btn" style="width:100%;padding:11px;font-size:15px;" onclick="enterApp()">Enter the PinKings clubhouse</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="main-app" style="display:none;">
+<div class="app">
+
+  <div class="header">
+    <div class="logo">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" fill="none" stroke="#fff" stroke-width="1.5"/><line x1="9" y1="2" x2="9" y2="5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="13" x2="9" y2="16" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="9" x2="5" y2="9" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><line x1="13" y1="9" x2="16" y2="9" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="9" r="2" fill="#fff"/></svg>
+    </div>
+    <h1>PinKings</h1>
+    <div id="header-club-badge" class="header-club-badge" onclick="switchTab('clubs')"></div>
+    <button class="notif-btn" onclick="toggleNotifs()" title="Notifications">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5A4.5 4.5 0 0 0 3.5 6v3L2 11h12l-1.5-2V6A4.5 4.5 0 0 0 8 1.5z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M6.5 11.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+      <div class="notif-badge" id="notif-badge" style="display:none;"></div>
+    </button>
+  </div>
+
+  <div id="notif-panel" style="display:none;">
+    <div class="notif-panel">
+      <div class="notif-panel-hdr"><span>Notifications</span><button class="btn-sm" onclick="markAllRead()">Mark all read</button></div>
+      <div id="notif-list"></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('courses')">Courses</button>
+    <button class="tab" onclick="switchTab('add')">+ Add</button>
+    <button class="tab" onclick="switchTab('worldmap')">Map</button>
+    <button class="tab" onclick="switchTab('leaderboard')">Scores</button>
+    <button class="tab" onclick="switchTab('clubs')">Clubs</button>
+    <button class="tab" onclick="switchTab('friends')">Friends</button>
+    <button class="tab" onclick="switchTab('profile')">Profile</button>
+  </div>
+
+  <!-- COURSES -->
+  <div id="courses" class="section active">
+    <div class="stat-grid" id="stats"></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <input type="text" id="search" placeholder="Search courses..." style="flex:1;min-width:100px;padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);outline:none;" oninput="renderCourses()">
+      <select id="sortby" onchange="renderCourses()" style="padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);outline:none;">
+        <option value="rating">My rating</option>
+        <option value="net">Best net</option>
+        <option value="gross">Best gross</option>
+        <option value="name">Name A–Z</option>
+        <option value="date">Date played</option>
+      </select>
+    </div>
+    <div id="courses-list"></div>
+  </div>
+
+  <!-- ADD -->
+  <div id="add" class="section">
+    <div class="card">
+      <div style="font-size:16px;font-weight:700;margin-bottom:1rem;">Log a course</div>
+      <!-- COURSE SEARCH -->
+      <div class="field" style="position:relative;">
+        <label>Search for a course *</label>
+        <div style="position:relative;">
+          <input id="course-search-input" type="text" placeholder="Type a course name, e.g. Rustic Canyon..." autocomplete="off"
+            style="width:100%;padding:8px 36px 8px 10px;font-size:14px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);outline:none;"
+            oninput="onCourseSearchInput(this.value)">
+          <div id="course-search-spinner" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="animation:spin 0.8s linear infinite;"><circle cx="8" cy="8" r="6" stroke="var(--border-mid)" stroke-width="2"/><path d="M8 2a6 6 0 0 1 6 6" stroke="var(--green)" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+        <div id="course-search-results" style="display:none;position:absolute;left:0;right:0;background:var(--bg-primary);border:0.5px solid var(--border-mid);border-radius:var(--radius-md);z-index:50;box-shadow:0 4px 16px rgba(0,0,0,0.12);margin-top:2px;max-height:280px;overflow-y:auto;"></div>
+      </div>
+
+      <!-- COURSE INFO PREVIEW (shown after selection) -->
+      <div id="course-info-preview" style="display:none;background:var(--bg-secondary);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:10px;border-left:3px solid var(--green);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-size:14px;font-weight:700;" id="preview-name"></div>
+          <button class="btn-sm" onclick="clearCourseSearch()">Change</button>
+        </div>
+        <div style="font-size:12px;color:var(--text-secondary);" id="preview-location"></div>
+        <div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap;" id="preview-stats"></div>
+      </div>
+
+      <div class="field"><label>Round type</label>
+        <div class="type-toggle">
+          <div class="type-btn sel-out" id="type-outdoor" onclick="setRoundType('outdoor')">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="vertical-align:middle;margin-right:4px;"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="6" cy="6" r="1.8" fill="currentColor"/></svg>Outdoor
+          </div>
+          <div class="type-btn" id="type-sim" onclick="setRoundType('sim')">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="vertical-align:middle;margin-right:4px;"><rect x="1.5" y="1.5" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.3" fill="none"/><rect x="4" y="4" width="4" height="4" rx="1" fill="currentColor"/></svg>Simulator
+          </div>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Course name</label><input id="f-name" type="text" placeholder="Auto-filled from search"></div>
+        <div class="field"><label>Location</label><input id="f-loc" type="text" placeholder="Auto-filled from search"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Date played</label><input id="f-date" type="date"></div>
+        <div class="field"><label>Tees played</label>
+          <div class="tee-btns" id="tee-btns">
+            <button class="tee-btn" style="background:#E24B4A;color:#fff;opacity:0.55;" onclick="selectTee('championship')">Championship</button>
+            <button class="tee-btn" style="background:#1a1a1a;color:#fff;opacity:0.55;" onclick="selectTee('black')">Black</button>
+            <button class="tee-btn" style="background:#378ADD;color:#fff;font-weight:700;" onclick="selectTee('blue')">Blue</button>
+            <button class="tee-btn" style="background:#ddd;color:#444;opacity:0.55;" onclick="selectTee('white')">White</button>
+            <button class="tee-btn" style="background:#EF9F27;color:#fff;opacity:0.55;" onclick="selectTee('gold')">Gold</button>
+            <button class="tee-btn" style="background:#fce8e8;border:1px solid #E24B4A;color:#A32D2D;opacity:0.55;" onclick="selectTee('red')">Red</button>
+          </div>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Course rating</label><input id="f-cr" type="number" step="0.1" placeholder="Auto-filled from search" oninput="updateNetPreview()"></div>
+        <div class="field"><label>Slope rating</label><input id="f-slope" type="number" placeholder="Auto-filled from search" oninput="updateNetPreview()"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Gross score</label><input id="f-gross" type="number" placeholder="e.g. 88" oninput="updateNetPreview()"></div>
+        <div class="field"><label>HCP override <span style="font-weight:400;color:var(--text-secondary);">(optional)</span></label><input id="f-hcp-override" type="number" step="0.1" placeholder="Uses profile HCP" oninput="updateNetPreview()"></div>
+      </div>
+      <div class="net-preview" id="net-preview" style="display:none;">
+        <div><div class="net-preview-label">Course HCP</div><div style="font-size:16px;font-weight:700;" id="np-chcp">—</div></div>
+        <div style="text-align:center;"><div class="net-preview-label">Net score</div><div class="net-preview-val" id="np-net">—</div></div>
+        <div style="text-align:right;"><div class="net-preview-label">vs par</div><div style="font-size:16px;font-weight:700;" id="np-par">—</div></div>
+      </div>
+      <div class="field"><label>Your rating</label>
+        <div class="star-row" id="add-stars">
+          <span class="star" onclick="setStar(1)">★</span><span class="star" onclick="setStar(2)">★</span><span class="star" onclick="setStar(3)">★</span><span class="star" onclick="setStar(4)">★</span><span class="star" onclick="setStar(5)">★</span>
+        </div>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="f-notes" placeholder="Conditions, highlights, memorable moments..."></textarea></div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;" id="pin-type-hint">Drop a pin — <span style="color:var(--green);font-weight:600;">outdoor (circle)</span></div>
+        <div class="map-wrap" style="height:200px;">
+          <svg id="mini-map" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet" style="height:200px;"></svg>
+          <div class="map-hint">Click anywhere on the map to place your pin</div>
+        </div>
+        <div id="pin-coords" style="font-size:12px;color:var(--text-secondary);margin-top:4px;"></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="addCourse()">Save course</button>
+        <button class="btn btn-ghost" onclick="clearAdd()">Clear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Log a friend's round</div>
+      <div class="row2">
+        <div class="field"><label>Course</label><select id="f-friend-course" style="width:100%;padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);"></select></div>
+        <div class="field"><label>Friend</label><select id="f-friend-who" style="width:100%;padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);"></select></div>
+      </div>
+      <div class="row4">
+        <div class="field"><label>Gross</label><input id="f-friend-gross" type="number" placeholder="92"></div>
+        <div class="field"><label>Course rating</label><input id="f-friend-cr" type="number" step="0.1" placeholder="72.4"></div>
+        <div class="field"><label>Slope</label><input id="f-friend-slope" type="number" placeholder="131"></div>
+        <div class="field"><label>Type</label>
+          <select id="f-friend-type" style="width:100%;padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);">
+            <option value="outdoor">Outdoor</option><option value="sim">Simulator</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn" onclick="addFriendRound()">Log round</button>
+    </div>
+  </div>
+
+  <!-- WORLD MAP -->
+  <div id="worldmap" class="section">
+    <div class="map-wrap" style="position:relative;">
+      <svg id="world-map" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="mtooltip" id="map-tooltip"></div>
+      <div class="map-hint">Hover pins for course details and ownership</div>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap;align-items:center;">
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);">
+        <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#1D9E75" stroke="#fff" stroke-width="1.5"/><circle cx="8" cy="8" r="2.5" fill="#fff"/></svg>Outdoor
+      </span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);">
+        <svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="3" fill="#7F77DD" stroke="#fff" stroke-width="1.5"/><rect x="5.5" y="5.5" width="5" height="5" rx="1.5" fill="#fff"/></svg>Simulator
+      </span>
+      <span id="map-legend-courses" style="font-size:12px;color:var(--text-secondary);"></span>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div id="leaderboard" class="section">
+    <div class="lb-toggle">
+      <button class="lb-tab active" id="lb-net-btn" onclick="setLbMode('net')">Net score</button>
+      <button class="lb-tab" id="lb-gross-btn" onclick="setLbMode('gross')">Gross score</button>
+    </div>
+    <div class="field" style="margin-bottom:12px;"><label>Filter by course</label>
+      <select id="lb-course-filter" onchange="renderLeaderboard()" style="width:100%;padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);">
+        <option value="all">All courses</option>
+      </select>
+    </div>
+    <div id="lb-list"></div>
+  </div>
+
+  <!-- CLUBS -->
+  <div id="clubs" class="section">
+    <div id="my-club-banner"></div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px;">Club Cup standings</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">10 pts per course owned by a club member. Year-end leader wins the Club Cup 🏆</div>
+    <div id="club-cup-standings"></div>
+    <div style="font-size:16px;font-weight:700;margin:1rem 0 8px;">All clubs</div>
+    <div id="all-clubs-list"></div>
+  </div>
+
+  <!-- FRIENDS -->
+  <div id="friends" class="section">
+    <div class="card">
+      <div style="font-size:16px;font-weight:700;margin-bottom:10px;">Manage friends</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <input id="friend-name-input" type="text" placeholder="Name" style="flex:1;min-width:100px;padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);">
+        <input id="friend-hcp-input" type="number" step="0.1" placeholder="HCP" style="width:70px;padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);">
+        <input id="friend-club-input" type="number" min="0" max="5" placeholder="Club 0–5" style="width:80px;padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);">
+        <button class="btn" onclick="addFriend()">Add</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-bottom:10px;">Club 0=Birdie Bunch · 1=Fore! The Love · 2=Mulligan Mafia · 3=Iron Maidens · 4=Bogey Brotherhood · 5=Chip Happens</div>
+      <div id="friends-list"></div>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <div id="profile" class="section">
+    <div class="card" id="profile-card"></div>
+  </div>
+
+  <!-- EDIT MODAL -->
+  <div id="edit-modal-wrap" style="display:none;">
+    <div class="modal-bg">
+      <div class="modal">
+        <h2>Edit course</h2>
+        <div class="row2">
+          <div class="field"><label>Name</label><input id="e-name" type="text"></div>
+          <div class="field"><label>Location</label><input id="e-loc" type="text"></div>
+        </div>
+        <div class="row3">
+          <div class="field"><label>Date</label><input id="e-date" type="date"></div>
+          <div class="field"><label>Gross score</label><input id="e-gross" type="number" oninput="updateEditNetPreview()"></div>
+          <div class="field"><label>HCP index</label><input id="e-hcp" type="number" step="0.1" oninput="updateEditNetPreview()"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Course rating</label><input id="e-cr" type="number" step="0.1" oninput="updateEditNetPreview()"></div>
+          <div class="field"><label>Slope</label><input id="e-slope" type="number" oninput="updateEditNetPreview()"></div>
+        </div>
+        <div id="edit-net-preview" style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;"></div>
+        <div class="field"><label>Round type</label>
+          <select id="e-type" style="width:100%;padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);">
+            <option value="outdoor">Outdoor</option><option value="sim">Simulator</option>
+          </select>
+        </div>
+        <div class="field"><label>Your rating</label>
+          <div class="star-row" id="edit-stars">
+            <span class="star" onclick="setEditStar(1)">★</span><span class="star" onclick="setEditStar(2)">★</span><span class="star" onclick="setEditStar(3)">★</span><span class="star" onclick="setEditStar(4)">★</span><span class="star" onclick="setEditStar(5)">★</span>
+          </div>
+        </div>
+        <div class="field"><label>Notes</label><textarea id="e-notes"></textarea></div>
+        <div class="modal-acts">
+          <button class="btn btn-ghost" onclick="closeEdit()">Cancel</button>
+          <button class="btn" onclick="saveEdit()">Save changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+const SK='fw_courses_v6',FK='fw_friends_v4',NK='fw_notifs_v3',PK='fw_profile_v2';
+let courses=[],friends=[],notifications=[],profile=null;
+let addStar=0,editStar=0,editId=null,pendingPin=null,roundType='outdoor',selectedTee='blue',lbMode='net';
+const TEE_COLORS={championship:'#E24B4A',black:'#1a1a1a',blue:'#378ADD',white:'#bbb',gold:'#EF9F27',red:'#fce8e8'};
+
+const CLUBS=[
+  {id:0,name:'The Birdie Bunch',motto:'Always threatening, never delivering',emoji:'🐦',color:'#1D9E75',bg:'#E1F5EE',border:'#1D9E75',text:'#0F6E56'},
+  {id:1,name:'Fore! The Love of the Game',motto:'Chaotic good, one shot at a time',emoji:'⛳',color:'#378ADD',bg:'#E6F1FB',border:'#378ADD',text:'#0C447C'},
+  {id:2,name:'The Mulligan Mafia',motto:"We'll take that again, thank you",emoji:'🎩',color:'#7F77DD',bg:'#EEEDFE',border:'#7F77DD',text:'#3C3489'},
+  {id:3,name:'Iron Maidens',motto:'Cold, calculated, dangerous',emoji:'⚙️',color:'#5F5E5A',bg:'#F1EFE8',border:'#888780',text:'#2C2C2A'},
+  {id:4,name:'The Bogey Brotherhood',motto:'One over, every time, always',emoji:'🤝',color:'#D85A30',bg:'#FAECE7',border:'#D85A30',text:'#4A1B0C'},
+  {id:5,name:'Chip Happens',motto:'Accepting fate one wedge at a time',emoji:'🍀',color:'#639922',bg:'#EAF3DE',border:'#639922',text:'#173404'},
+];
+
+function getClub(id){return CLUBS[id]||CLUBS[0];}
+function initials(n){return n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
+function hashStr(s){let h=0;for(let i=0;i<s.length;i++)h=(Math.imul(31,h)+s.charCodeAt(i))|0;return h;}
+function calcCourseHcp(idx,slope,cr){return Math.round((+idx)*((+slope||113)/113)+(( +cr||72)-72));}
+function calcNet(gross,ch){return +gross - +ch;}
+function getHcpIndex(ov){const v=parseFloat(ov);if(!isNaN(v))return v;if(profile&&profile.handicap!=null)return parseFloat(profile.handicap);return null;}
+
+function ls_get(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}}
+function ls_set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+function load(){
+  courses=ls_get(SK)||[];
+  friends=ls_get(FK)||[];
+  notifications=ls_get(NK)||[];
+  profile=ls_get(PK);
+  if(profile){showMainApp();}
+  else{document.getElementById('setup-screen').style.display='block';}
+}
+function save(){ls_set(SK,courses);ls_set(FK,friends);ls_set(NK,notifications);ls_set(PK,profile);}
+
+function showLogin(){document.getElementById('signup-form').style.display='none';document.getElementById('login-form').style.display='block';}
+function showSignup(){document.getElementById('login-form').style.display='none';document.getElementById('signup-form').style.display='block';}
+
+function signUp(){
+  const first=document.getElementById('s-first').value.trim(),last=document.getElementById('s-last').value.trim(),email=document.getElementById('s-email').value.trim(),pass=document.getElementById('s-pass').value;
+  if(!first||!last){alert('Please enter your name.');return;}
+  if(!email){alert('Please enter your email.');return;}
+  if(!pass||pass.length<6){alert('Password must be at least 6 characters.');return;}
+  const hcp=document.getElementById('s-hcp').value,home=document.getElementById('s-home').value.trim();
+  const clubId=Math.floor(Math.random()*6);
+  profile={name:first+' '+last,firstName:first,email,handicap:hcp?+hcp:null,home,clubId,joined:new Date().toISOString()};
+  save();
+  document.getElementById('setup-screen').style.display='none';
+  showClubReveal(clubId);
+}
+
+function logIn(){
+  const email=document.getElementById('l-email').value.trim();
+  if(!email){alert('Enter your email.');return;}
+  const saved=ls_get(PK);
+  if(saved&&saved.email===email){profile=saved;showMainApp();}
+  else{alert('No account found. Please sign up.');}
+}
+
+function showClubReveal(clubId){
+  document.getElementById('reveal-screen').style.display='block';
+  const names=CLUBS.map(c=>c.name);
+  let i=0,spins=0,max=30;
+  const el=document.getElementById('spin-name');
+  const interval=setInterval(()=>{
+    el.textContent=names[i%6];
+    el.style.opacity=spins>22?(Math.max(0,1-(spins-22)/8)).toFixed(2):'1';
+    i++;spins++;
+    if(spins>=max){clearInterval(interval);showRevealResult(clubId);}
+  },85);
+}
+
+function showRevealResult(clubId){
+  document.getElementById('spin-name').style.display='none';
+  const club=getClub(clubId);
+  document.getElementById('reveal-banner').innerHTML=`
+    <div class="club-banner" style="background:${club.bg};border-color:${club.border};">
+      <div class="club-crest" style="background:${club.color};color:#fff;">${club.emoji}</div>
+      <div>
+        <div style="font-size:18px;font-weight:700;color:${club.text};">${club.name}</div>
+        <div style="font-size:13px;color:${club.text};opacity:0.8;margin-top:2px;">"${club.motto}"</div>
+      </div>
+    </div>`;
+  document.getElementById('reveal-desc').textContent=`You've been drafted into ${club.name}. Compete for course ownership to earn points and claim the Club Cup at year end!`;
+  document.getElementById('reveal-result').style.display='block';
+  pushNotif(`Welcome to ${club.name}! ${club.emoji} Your club awaits — go claim some courses.`,'success');
+}
+
+function enterApp(){document.getElementById('reveal-screen').style.display='none';showMainApp();}
+
+function showMainApp(){
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('reveal-screen').style.display='none';
+  document.getElementById('main-app').style.display='block';
+  if(profile){
+    const club=getClub(profile.clubId);
+    const hb=document.getElementById('header-club-badge');
+    hb.textContent=club.emoji+' '+club.name;
+    hb.style.background=club.bg;hb.style.color=club.text;hb.style.border='0.5px solid '+club.border;
+  }
+  renderAll();loadMaps();
+}
+
+function pushNotif(text,type='info'){
+  notifications.unshift({id:Date.now(),text,type,read:false,time:new Date().toISOString()});
+  if(notifications.length>50)notifications=notifications.slice(0,50);
+  save();renderNotifBadge();renderNotifList();
+}
+function timeAgo(iso){const m=Math.floor((Date.now()-new Date(iso).getTime())/60000);if(m<1)return'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago';}
+function renderNotifBadge(){const u=notifications.filter(n=>!n.read).length,b=document.getElementById('notif-badge');if(b){if(u>0){b.style.display='flex';b.textContent=u>9?'9+':u;}else b.style.display='none';}}
+function renderNotifList(){
+  const el=document.getElementById('notif-list');if(!el)return;
+  if(!notifications.length){el.innerHTML='<div style="padding:14px;font-size:13px;color:var(--text-secondary);">No notifications yet.</div>';return;}
+  const tc={info:'#378ADD',success:'#1D9E75',warning:'#BA7517',takeover:'#E24B4A'};
+  el.innerHTML=notifications.slice(0,20).map(n=>`<div class="notif-item${n.read?'':' unread'}"><div class="notif-dot" style="background:${tc[n.type]||'#888'};"></div><div><div class="notif-text">${n.text}</div><div class="notif-time">${timeAgo(n.time)}</div></div></div>`).join('');
+}
+function toggleNotifs(){const p=document.getElementById('notif-panel'),show=p.style.display==='none'||!p.style.display;p.style.display=show?'block':'none';if(show){notifications.forEach(n=>n.read=true);save();renderNotifBadge();renderNotifList();}}
+function markAllRead(){notifications.forEach(n=>n.read=true);save();renderNotifBadge();renderNotifList();}
+
+function switchTab(id){
+  document.querySelectorAll('.tab').forEach((t,i)=>{const ids=['courses','add','worldmap','leaderboard','clubs','friends','profile'];t.classList.toggle('active',ids[i]===id);});
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('notif-panel').style.display='none';
+  if(id==='worldmap')renderWorldMap();
+  if(id==='leaderboard'){populateLbFilter();renderLeaderboard();}
+  if(id==='clubs')renderClubs();
+  if(id==='friends')renderFriends();
+  if(id==='add')populateFriendDropdowns();
+  if(id==='profile')renderProfile();
+}
+
+function setRoundType(t){
+  roundType=t;
+  document.getElementById('type-outdoor').className='type-btn'+(t==='outdoor'?' sel-out':'');
+  document.getElementById('type-sim').className='type-btn'+(t==='sim'?' sel-sim':'');
+  document.getElementById('pin-type-hint').innerHTML=`Drop a pin — <span style="color:${t==='outdoor'?'var(--green)':'var(--purple)'};font-weight:600;">${t==='outdoor'?'outdoor (circle)':'simulator (square)'}</span>`;
+  if(pendingPin)renderMiniPins();
+}
+
+function selectTee(tee){
+  selectedTee=tee;
+  document.querySelectorAll('.tee-btn').forEach(b=>{const t=b.getAttribute('onclick').match(/selectTee\('(\w+)'/)[1];b.style.opacity=t===tee?'1':'0.55';b.style.fontWeight=t===tee?'700':'600';});
+}
+
+function setStar(v){addStar=v;document.querySelectorAll('#add-stars .star').forEach(s=>s.classList.toggle('on',+s.getAttribute('onclick').match(/\d+/)[0]<=v));}
+function setEditStar(v){editStar=v;document.querySelectorAll('#edit-stars .star').forEach(s=>s.classList.toggle('on',+s.getAttribute('onclick').match(/\d+/)[0]<=v));}
+function starsHTML(n){let h='';for(let i=1;i<=5;i++)h+=`<span style="color:${i<=n?'#EF9F27':'var(--border-mid)'};font-size:14px;">★</span>`;return h;}
+
+function updateNetPreview(){
+  const g=document.getElementById('f-gross').value,cr=document.getElementById('f-cr').value,sl=document.getElementById('f-slope').value,h=getHcpIndex(document.getElementById('f-hcp-override').value),p=document.getElementById('net-preview');
+  if(g&&h!=null){
+    p.style.display='flex';
+    const ch=calcCourseHcp(h,sl,cr),net=calcNet(g,ch),par=cr?Math.round(+cr):72,diff=net-par;
+    document.getElementById('np-chcp').textContent=ch;
+    document.getElementById('np-net').textContent=net;
+    const pe=document.getElementById('np-par');pe.textContent=(diff>0?'+':'')+diff;pe.style.color=diff<=0?'var(--green)':'var(--red)';
+  }else p.style.display='none';
+}
+function updateEditNetPreview(){
+  const g=document.getElementById('e-gross').value,h=parseFloat(document.getElementById('e-hcp').value)||getHcpIndex(null),cr=document.getElementById('e-cr').value,sl=document.getElementById('e-slope').value,el=document.getElementById('edit-net-preview');
+  if(g&&h!=null){const ch=calcCourseHcp(h,sl,cr);el.textContent=`Course HCP: ${ch} · Net score: ${calcNet(g,ch)}`;}else el.textContent='';
+}
+
+function clearAdd(){
+  ['f-name','f-loc','f-gross','f-hcp-override','f-notes','f-cr','f-slope'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('f-date').value='';addStar=0;setStar(0);pendingPin=null;selectedTee='blue';
+  document.getElementById('pin-coords').textContent='';document.getElementById('net-preview').style.display='none';
+  setRoundType('outdoor');selectTee('blue');renderMiniPins();
+  selectedCourseData=null;
+  const si=document.getElementById('course-search-input');if(si)si.value='';
+  const pr=document.getElementById('course-info-preview');if(pr)pr.style.display='none';
+  const sr=document.getElementById('course-search-results');if(sr)sr.style.display='none';
+}
+
+function addCourse(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name){alert('Enter a course name.');return;}
+  if(!addStar){alert('Please rate this course.');return;}
+  const g=document.getElementById('f-gross').value,cr=document.getElementById('f-cr').value,sl=document.getElementById('f-slope').value,h=getHcpIndex(document.getElementById('f-hcp-override').value);
+  let ch=null,net=null;
+  if(g&&h!=null){ch=calcCourseHcp(h,sl,cr);net=calcNet(g,ch);}
+  const course={id:Date.now(),name,location:document.getElementById('f-loc').value.trim(),date:document.getElementById('f-date').value,gross:g?+g:null,hcpIndex:h,courseHcp:ch,net,courseRating:cr?+cr:null,slope:sl?+sl:null,tee:selectedTee,type:roundType,rating:addStar,notes:document.getElementById('f-notes').value.trim(),pin:pendingPin?{lat:pendingPin.lat,lng:pendingPin.lng}:null,rounds:[]};
+  courses.push(course);
+  pushNotif(`Logged "${name}" (${roundType}).${net!=null?' Net: '+net+'.':''}`,'success');
+  save();clearAdd();renderAll();switchTab('courses');
+}
+
+function getAllRounds(c){
+  const a=[];
+  if(c.gross!=null)a.push({name:'Me',clubId:profile?profile.clubId:0,gross:c.gross,net:c.net!=null?c.net:c.gross-(c.courseHcp||0),courseHcp:c.courseHcp||0});
+  if(c.rounds)c.rounds.forEach(r=>a.push({name:r.friendName,clubId:r.clubId!=null?r.clubId:null,gross:r.gross,net:r.net,courseHcp:r.courseHcp||0}));
+  return a;
+}
+function getOwner(c){const a=getAllRounds(c);if(!a.length)return null;return a.sort((x,y)=>x.net-y.net)[0];}
+
+function getClubPoints(){
+  const pts=CLUBS.map(c=>({...c,points:0,owned:[]}));
+  courses.forEach(c=>{const owner=getOwner(c);if(owner&&owner.clubId!=null){pts[owner.clubId].points+=10;pts[owner.clubId].owned.push(c.name);}});
+  return pts.sort((a,b)=>b.points-a.points);
+}
+
+function renderClubs(){
+  const myClub=profile?getClub(profile.clubId):null;
+  const standings=getClubPoints();
+  const year=new Date().getFullYear();
+  if(myClub){
+    const myPts=standings.find(s=>s.id===myClub.id)?.points||0;
+    document.getElementById('my-club-banner').innerHTML=`
+      <div class="club-banner" style="background:${myClub.bg};border-color:${myClub.border};">
+        <div class="club-crest" style="background:${myClub.color};color:#fff;">${myClub.emoji}</div>
+        <div style="flex:1;">
+          <div style="font-size:11px;font-weight:600;color:${myClub.text};opacity:0.7;margin-bottom:2px;letter-spacing:0.5px;">YOUR CLUB</div>
+          <div style="font-size:17px;font-weight:700;color:${myClub.text};">${myClub.name}</div>
+          <div style="font-size:12px;color:${myClub.text};opacity:0.75;">"${myClub.motto}"</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:${myClub.text};opacity:0.7;">Club Cup pts</div>
+          <div style="font-size:28px;font-weight:700;color:${myClub.text};">${myPts}</div>
+        </div>
+      </div>`;
+  }
+  const leader=standings[0];
+  document.getElementById('club-cup-standings').innerHTML=`
+    <div class="cup-trophy">
+      <div style="font-size:32px;margin-bottom:6px;">🏆</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:2px;">${year} Club Cup</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;">Earn 10 pts for every course your club owns</div>
+      ${standings.map((cl,i)=>{
+        const pct=leader.points>0?Math.round((cl.points/leader.points)*100):0;
+        const isMe=profile&&cl.id===profile.clubId;
+        return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <div style="width:26px;font-size:14px;text-align:right;">${i===0&&cl.points>0?'👑':`#${i+1}`}</div>
+          <div style="font-size:18px;">${cl.emoji}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:${isMe?'700':'500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${cl.name}${isMe?' ✓':''}</div>
+            <div class="bar-outer"><div class="bar-inner" style="width:${pct}%;background:${cl.color};transition:width 0.5s;"></div></div>
+          </div>
+          <div style="font-size:14px;font-weight:700;min-width:40px;text-align:right;">${cl.points}<span style="font-size:10px;font-weight:400;color:var(--text-secondary);"> pts</span></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  document.getElementById('all-clubs-list').innerHTML=standings.map(cl=>{
+    const isMe=profile&&cl.id===profile.clubId;
+    const memberFriends=friends.filter(f=>f.clubId===cl.id);
+    return`<div class="club-card" style="${isMe?'border-color:'+cl.border+';border-width:2px;':''}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="width:44px;height:44px;border-radius:50%;background:${cl.color};display:flex;align-items:center;justify-content:center;font-size:20px;">${cl.emoji}</div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;">${cl.name} ${isMe?'<span class="badge badge-green">You</span>':''}</div>
+          <div style="font-size:12px;color:var(--text-secondary);">"${cl.motto}"</div>
+        </div>
+        <div style="text-align:right;"><div style="font-size:20px;font-weight:700;color:${cl.color};">${cl.points}</div><div style="font-size:10px;color:var(--text-secondary);">pts</div></div>
+      </div>
+      ${cl.owned.length?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">Courses owned: <span style="color:var(--text-primary);font-weight:500;">${cl.owned.join(', ')}</span></div>`:'<div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">No courses owned yet — go compete!</div>'}
+      ${memberFriends.length?`<div style="font-size:12px;color:var(--text-secondary);">Your friends here: ${memberFriends.map(f=>f.name).join(', ')}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderStats(){
+  const total=courses.length,avg=total?(courses.reduce((a,c)=>a+c.rating,0)/total).toFixed(1):'—',owned=courses.filter(c=>{const o=getOwner(c);return o&&o.name==='Me';}).length;
+  document.getElementById('stats').innerHTML=`<div class="stat"><div class="stat-lbl">Courses played</div><div class="stat-val">${total}</div></div><div class="stat"><div class="stat-lbl">Avg rating</div><div class="stat-val">${avg}</div></div><div class="stat"><div class="stat-lbl">I own</div><div class="stat-val">${owned}</div></div>`;
+}
+
+function renderCourses(){
+  renderStats();
+  const q=document.getElementById('search').value.toLowerCase(),sort=document.getElementById('sortby').value;
+  let list=[...courses].filter(c=>!q||c.name.toLowerCase().includes(q)||(c.location||'').toLowerCase().includes(q));
+  if(sort==='rating')list.sort((a,b)=>b.rating-a.rating);
+  else if(sort==='net')list.sort((a,b)=>(a.net!=null?a.net:999)-(b.net!=null?b.net:999));
+  else if(sort==='gross')list.sort((a,b)=>(a.gross!=null?a.gross:999)-(b.gross!=null?b.gross:999));
+  else if(sort==='name')list.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sort==='date')list.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const byRating=[...courses].sort((a,b)=>b.rating-a.rating);
+  const el=document.getElementById('courses-list');
+  if(!list.length){el.innerHTML=`<div class="empty">${courses.length?'No courses match your search.':'No courses yet — add your first round!'}</div>`;return;}
+  el.innerHTML=list.map(c=>{
+    const myRank=byRating.findIndex(x=>x.id===c.id)+1,owner=getOwner(c);
+    const comm=Math.round(((Math.abs(hashStr(c.name))%30+55)/10)*10)/10,barPct=Math.round((comm/5)*100);
+    const dateStr=c.date?new Date(c.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
+    const rankCls=myRank===1?'r1':myRank===2?'r2':myRank===3?'r3':'rn';
+    const ownerClub=owner&&owner.clubId!=null?getClub(owner.clubId):null;
+    const ownerB=owner?`<span class="badge badge-gold">${owner.name==='Me'?'▶ ':''}${owner.name} owns it${ownerClub?' '+ownerClub.emoji:''}</span>`:'';
+    const typeB=c.type==='sim'?'<span class="badge badge-purple">Simulator</span>':'<span class="badge badge-green">Outdoor</span>';
+    const teeB=c.tee?`<span class="badge badge-gray" style="border-left:3px solid ${TEE_COLORS[c.tee]||'#888'};border-radius:0 4px 4px 0;padding-left:6px;">${c.tee}</span>`:'';
+    return`<div class="course-card"><div class="rank-circle ${rankCls}">#${myRank}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:2px;"><span style="font-size:15px;font-weight:700;">${c.name}</span>${typeB}${teeB}${ownerB}${c.pin?'<span class="badge badge-gray">📍 Pinned</span>':''}</div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:5px;">${[c.location,dateStr].filter(Boolean).join(' · ')}</div>
+        <div style="margin-bottom:5px;">${starsHTML(c.rating)}</div>
+        ${c.gross!=null?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:5px;">Gross: <b style="color:var(--text-primary);">${c.gross}</b>${c.courseHcp!=null?' · Course HCP: '+c.courseHcp:''}${c.net!=null?' · Net: <b style="color:var(--green);">'+c.net+'</b>':''}</div>`:''}
+        ${c.notes?`<div style="font-size:12px;color:var(--text-secondary);font-style:italic;margin-bottom:6px;">"${c.notes}"</div>`:''}
+        <div style="margin-bottom:8px;"><div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px;">Community rating: ${comm.toFixed(1)}/5</div><div class="bar-outer"><div class="bar-inner" style="width:${barPct}%;background:var(--green);"></div></div></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-sm" onclick="openEdit(${c.id})">Edit</button><button class="btn-sm btn-sm-danger" onclick="deleteCourse(${c.id})">Remove</button></div>
+      </div></div>`;
+  }).join('');
+}
+
+function setLbMode(m){lbMode=m;document.getElementById('lb-net-btn').className='lb-tab'+(m==='net'?' active':'');document.getElementById('lb-gross-btn').className='lb-tab'+(m==='gross'?' active':'');renderLeaderboard();}
+function populateLbFilter(){const s=document.getElementById('lb-course-filter');if(s)s.innerHTML='<option value="all">All courses</option>'+courses.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');}
+function renderLeaderboard(){
+  const el=document.getElementById('lb-list');if(!el)return;
+  const fv=document.getElementById('lb-course-filter').value,fc=fv==='all'?courses:courses.filter(c=>c.id===+fv);
+  if(!fc.length){el.innerHTML='<div class="empty">No courses yet.</div>';return;}
+  const pm={};
+  fc.forEach(c=>{getAllRounds(c).forEach(r=>{if(!pm[r.name])pm[r.name]={name:r.name,clubId:r.clubId,rounds:[],tGross:0,tNet:0,bGross:Infinity,bNet:Infinity};pm[r.name].rounds.push({...r,cn:c.name});pm[r.name].tGross+=r.gross;pm[r.name].tNet+=r.net;if(r.gross<pm[r.name].bGross)pm[r.name].bGross=r.gross;if(r.net<pm[r.name].bNet)pm[r.name].bNet=r.net;});});
+  const players=Object.values(pm);
+  if(!players.length){el.innerHTML='<div class="empty">No scores logged yet.</div>';return;}
+  const sk=lbMode==='net'?'bNet':'bGross',ak=lbMode==='net'?'tNet':'tGross';
+  players.sort((a,b)=>a[sk]-b[sk]);
+  const lbl=lbMode==='net'?'net':'gross';
+  el.innerHTML=`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Ranked by best ${lbl} score · ${fv==='all'?'all courses':'this course only'}</div>`+
+  players.map((p,i)=>{
+    const rankCls=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+    const isMe=p.name==='Me';
+    const avg=Math.round((p[ak]/p.rounds.length)*10)/10;
+    const club=p.clubId!=null?getClub(p.clubId):null;
+    return`<div class="course-card" style="${isMe?'border-color:var(--green);border-width:1.5px;':''}">
+      <div class="rank-circle ${rankCls}">#${i+1}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+          <div class="avatar" style="background:${club?club.color:'#888'};width:30px;height:30px;font-size:11px;">${initials(isMe&&profile?profile.name:'Me')}</div>
+          <span style="font-size:15px;font-weight:700;">${isMe&&profile?profile.name:p.name}</span>
+          ${club?`<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${club.bg};color:${club.text};font-weight:600;">${club.emoji} ${club.name}</span>`:''}
+          ${i===0?'<span class="badge badge-gold">▶ Leader</span>':''}
+          ${isMe?'<span class="badge badge-green">You</span>':''}
+        </div>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;">
+          <div><div style="font-size:11px;color:var(--text-secondary);font-weight:500;">Best ${lbl}</div><div style="font-size:20px;font-weight:700;color:${lbMode==='net'?'var(--green)':'var(--text-primary)'};">${p[sk]===Infinity?'—':p[sk]}</div></div>
+          <div><div style="font-size:11px;color:var(--text-secondary);font-weight:500;">Avg ${lbl}</div><div style="font-size:20px;font-weight:700;">${avg}</div></div>
+          <div><div style="font-size:11px;color:var(--text-secondary);font-weight:500;">Rounds</div><div style="font-size:20px;font-weight:700;">${p.rounds.length}</div></div>
+        </div>
+      </div></div>`;
+  }).join('');
+}
+
+function populateFriendDropdowns(){
+  const cs=document.getElementById('f-friend-course'),fw=document.getElementById('f-friend-who');
+  if(cs)cs.innerHTML=courses.length?courses.map(c=>`<option value="${c.id}">${c.name}</option>`).join(''):'<option>No courses yet</option>';
+  if(fw)fw.innerHTML=friends.length?friends.map(f=>`<option value="${f.id}">${f.name}${f.handicap!=null?' (HCP '+f.handicap+')':''}</option>`).join(''):'<option>No friends yet</option>';
+}
+
+function addFriendRound(){
+  const cid=+document.getElementById('f-friend-course').value,fid=+document.getElementById('f-friend-who').value,g=document.getElementById('f-friend-gross').value,cr=document.getElementById('f-friend-cr').value,sl=document.getElementById('f-friend-slope').value,ft=document.getElementById('f-friend-type').value;
+  if(!g){alert('Enter a gross score.');return;}
+  const c=courses.find(x=>x.id===cid),f=friends.find(x=>x.id===fid);if(!c||!f)return;
+  const prevOwner=getOwner(c);
+  if(!c.rounds)c.rounds=[];
+  const hi=f.handicap!=null?f.handicap:0,ch=calcCourseHcp(hi,sl||113,cr||72),net=calcNet(+g,ch);
+  c.rounds.push({friendId:fid,friendName:f.name,clubId:f.clubId!=null?f.clubId:null,gross:+g,hcpIndex:hi,courseHcp:ch,net,courseRating:cr?+cr:null,slope:sl?+sl:null,date:new Date().toISOString().slice(0,10),type:ft});
+  const newOwner=getOwner(c);
+  if(prevOwner&&newOwner&&prevOwner.name!==newOwner.name){
+    const nClub=newOwner.clubId!=null?getClub(newOwner.clubId):null;
+    const pClub=prevOwner.clubId!=null?getClub(prevOwner.clubId):null;
+    pushNotif(prevOwner.name==='Me'?`${newOwner.name} ${nClub?nClub.emoji:''} took ownership of "${c.name}" from you! Net ${newOwner.net}. Reclaim your title.`:`${newOwner.name} ${nClub?nClub.emoji:''} took "${c.name}" from ${prevOwner.name} ${pClub?pClub.emoji:''} with net ${newOwner.net}.`,'takeover');
+  }else{pushNotif(`${f.name} shot ${g} (net ${net}) at "${c.name}".`,'info');}
+  save();renderCourses();document.getElementById('f-friend-gross').value='';document.getElementById('f-friend-cr').value='';document.getElementById('f-friend-slope').value='';
+}
+
+function addFriend(){
+  const name=document.getElementById('friend-name-input').value.trim();if(!name)return;
+  const hcp=document.getElementById('friend-hcp-input').value,ci=document.getElementById('friend-club-input').value;
+  const clubId=ci!==''?Math.max(0,Math.min(5,+ci)):Math.floor(Math.random()*6);
+  friends.push({id:Date.now(),name,handicap:hcp?+hcp:null,clubId});
+  document.getElementById('friend-name-input').value='';document.getElementById('friend-hcp-input').value='';document.getElementById('friend-club-input').value='';
+  pushNotif(`${name} added — ${getClub(clubId).emoji} ${getClub(clubId).name}.`,'info');
+  save();renderFriends();populateFriendDropdowns();
+}
+function deleteFriend(id){const f=friends.find(x=>x.id===id);friends=friends.filter(x=>x.id!==id);if(f)pushNotif(`${f.name} removed.`,'warning');save();renderFriends();}
+function renderFriends(){
+  const el=document.getElementById('friends-list');
+  if(!friends.length){el.innerHTML='<div style="font-size:13px;color:var(--text-secondary);padding:8px 0;">No friends added yet.</div>';return;}
+  el.innerHTML=friends.map(f=>{
+    const club=f.clubId!=null?getClub(f.clubId):null;
+    return`<div class="friend-row">
+      <div class="avatar" style="background:${club?club.color:'#888'};">${initials(f.name)}</div>
+      <div style="flex:1;"><div style="font-size:14px;font-weight:600;">${f.name}${f.handicap!=null?`<span style="font-size:12px;color:var(--text-secondary);font-weight:400;margin-left:6px;">HCP ${f.handicap}</span>`:''}</div>${club?`<div style="font-size:11px;color:${club.text};font-weight:600;">${club.emoji} ${club.name}</div>`:''}</div>
+      <button class="btn-sm btn-sm-danger" onclick="deleteFriend(${f.id})">Remove</button>
+    </div>`;
+  }).join('');
+}
+
+function renderProfile(){
+  if(!profile)return;
+  const club=getClub(profile.clubId);
+  const owned=courses.filter(c=>{const o=getOwner(c);return o&&o.name==='Me';}).length;
+  const bestNet=courses.filter(c=>c.net!=null).sort((a,b)=>a.net-b.net)[0];
+  const bestGross=courses.filter(c=>c.gross!=null).sort((a,b)=>a.gross-b.gross)[0];
+  const standings=getClubPoints(),clubRank=standings.findIndex(s=>s.id===profile.clubId)+1;
+  document.getElementById('profile-card').innerHTML=`
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:1.25rem;">
+      <div class="profile-avatar" style="background:${club.color};">${initials(profile.name)}</div>
+      <div>
+        <div style="font-size:20px;font-weight:700;">${profile.name}</div>
+        ${profile.home?`<div style="font-size:13px;color:var(--text-secondary);">Home: ${profile.home}</div>`:''}
+        <div style="font-size:12px;padding:2px 8px;border-radius:var(--radius-md);background:${club.bg};color:${club.text};display:inline-block;margin-top:4px;font-weight:600;">${club.emoji} ${club.name} · Club Cup #${clubRank}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem;">
+      <div class="stat"><div class="stat-lbl">Handicap index</div><div class="stat-val">${profile.handicap!=null?profile.handicap:'—'}</div></div>
+      <div class="stat"><div class="stat-lbl">Courses played</div><div class="stat-val">${courses.length}</div></div>
+      <div class="stat"><div class="stat-lbl">Courses owned</div><div class="stat-val">${owned}</div></div>
+      <div class="stat"><div class="stat-lbl">Friends</div><div class="stat-val">${friends.length}</div></div>
+    </div>
+    ${bestNet?`<div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">Best net: <b style="color:var(--green);">${bestNet.net}</b> at ${bestNet.name}</div>`:''}
+    ${bestGross?`<div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">Best gross: <b style="color:var(--text-primary);">${bestGross.gross}</b> at ${bestGross.name}</div>`:''}
+    <div style="border-top:0.5px solid var(--border);padding-top:14px;">
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Update profile</div>
+      <div class="row2">
+        <div class="field"><label>Name</label><input id="p-name" type="text" value="${profile.name}"></div>
+        <div class="field"><label>Handicap index</label><input id="p-hcp" type="number" step="0.1" value="${profile.handicap!=null?profile.handicap:''}"></div>
+      </div>
+      <div class="field"><label>Home course</label><input id="p-home" type="text" value="${profile.home||''}"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" onclick="updateProfile()">Save changes</button>
+        <button class="btn btn-danger" onclick="logOut()">Log out</button>
+      </div>
+    </div>`;
+}
+
+function updateProfile(){
+  const name=document.getElementById('p-name').value.trim();if(!name){alert('Name required.');return;}
+  profile.name=name;profile.handicap=document.getElementById('p-hcp').value?+document.getElementById('p-hcp').value:null;profile.home=document.getElementById('p-home').value.trim();
+  pushNotif('Profile updated.','info');save();renderProfile();renderCourses();
+}
+function logOut(){if(!confirm('Log out of PinKings?'))return;profile=null;save();document.getElementById('main-app').style.display='none';document.getElementById('setup-screen').style.display='block';showSignup();}
+
+function deleteCourse(id){const c=courses.find(x=>x.id===id);if(!confirm('Remove "'+c.name+'"?'))return;courses=courses.filter(x=>x.id!==id);pushNotif(`"${c.name}" removed.`,'warning');save();renderAll();}
+function openEdit(id){
+  const c=courses.find(x=>x.id===id);if(!c)return;editId=id;editStar=c.rating;
+  document.getElementById('e-name').value=c.name;document.getElementById('e-loc').value=c.location||'';document.getElementById('e-date').value=c.date||'';document.getElementById('e-gross').value=c.gross||'';document.getElementById('e-hcp').value=c.hcpIndex!=null?c.hcpIndex:'';document.getElementById('e-cr').value=c.courseRating||'';document.getElementById('e-slope').value=c.slope||'';document.getElementById('e-notes').value=c.notes||'';document.getElementById('e-type').value=c.type||'outdoor';
+  setEditStar(c.rating);document.getElementById('edit-net-preview').textContent='';document.getElementById('edit-modal-wrap').style.display='block';
+}
+function closeEdit(){document.getElementById('edit-modal-wrap').style.display='none';editId=null;}
+function saveEdit(){
+  const c=courses.find(x=>x.id===editId);if(!c)return;
+  c.name=document.getElementById('e-name').value.trim();c.location=document.getElementById('e-loc').value.trim();c.date=document.getElementById('e-date').value;c.gross=document.getElementById('e-gross').value?+document.getElementById('e-gross').value:null;
+  const hi=document.getElementById('e-hcp').value?+document.getElementById('e-hcp').value:getHcpIndex(null);c.hcpIndex=hi;c.courseRating=document.getElementById('e-cr').value?+document.getElementById('e-cr').value:null;c.slope=document.getElementById('e-slope').value?+document.getElementById('e-slope').value:null;
+  if(c.gross!=null&&hi!=null){c.courseHcp=calcCourseHcp(hi,c.slope,c.courseRating);c.net=calcNet(c.gross,c.courseHcp);}
+  c.notes=document.getElementById('e-notes').value.trim();c.rating=editStar;c.type=document.getElementById('e-type').value;
+  pushNotif(`"${c.name}" updated.`,'info');save();closeEdit();renderAll();
+}
+
+function renderAll(){if(!profile)return;renderStats();renderCourses();renderNotifBadge();renderNotifList();populateFriendDropdowns();}
+
+let worldLoaded=false,worldSvgEl=null,worldProjection=null,miniProjection=null;
+function drawPin(svgEl,x,y,type){
+  const g=svgEl.append('g').attr('class','pin-group');
+  if(type==='sim'){g.append('rect').attr('x',x-8).attr('y',y-8).attr('width',16).attr('height',16).attr('rx',3).attr('fill','#7F77DD').attr('stroke','#fff').attr('stroke-width',1.5).attr('opacity',0.92);g.append('rect').attr('x',x-3.5).attr('y',y-3.5).attr('width',7).attr('height',7).attr('rx',1.5).attr('fill','#fff');}
+  else{g.append('circle').attr('cx',x).attr('cy',y).attr('r',8).attr('fill','#1D9E75').attr('stroke','#fff').attr('stroke-width',1.5).attr('opacity',0.92);g.append('circle').attr('cx',x).attr('cy',y).attr('r',3).attr('fill','#fff');}
+  return g;
+}
+function renderMiniPins(){
+  const s=d3.select('#mini-map');s.selectAll('.pin-group').remove();
+  if(!pendingPin||!miniProjection)return;
+  const[px,py]=miniProjection([pendingPin.lng,pendingPin.lat]);drawPin(s,px,py,roundType);
+}
+function renderWorldMap(){
+  if(!worldLoaded||!worldSvgEl)return;
+  worldSvgEl.selectAll('.pin-group').remove();
+  const tt=document.getElementById('map-tooltip');
+  courses.filter(c=>c.pin).forEach(c=>{
+    if(!worldProjection)return;
+    const[px,py]=worldProjection([c.pin.lng,c.pin.lat]);
+    const g=drawPin(worldSvgEl,px,py,c.type||'outdoor');g.style('cursor','pointer');
+    const owner=getOwner(c),ownerClub=owner&&owner.clubId!=null?getClub(owner.clubId):null;
+    g.on('mouseover',()=>{tt.style.display='block';tt.innerHTML=`<b style="color:var(--text-primary);">${c.name}</b>${c.location?'<br><span style="color:var(--text-secondary);">'+c.location+'</span>':''}<br><span style="color:${c.type==='sim'?'#7F77DD':'#1D9E75'};font-size:11px;">${c.type==='sim'?'Simulator':'Outdoor'}</span>${c.net!=null?'<br>Net: '+c.net:''}${owner?'<br><b style="color:#1D9E75;">'+(ownerClub?ownerClub.emoji+' ':'')+owner.name+' owns it</b>':''}`;});
+    g.on('mousemove',function(event){const r=document.getElementById('world-map').getBoundingClientRect();tt.style.left=(event.clientX-r.left+12)+'px';tt.style.top=(event.clientY-r.top+12)+'px';});
+    g.on('mouseleave',()=>tt.style.display='none');
+  });
+  const lc=document.getElementById('map-legend-courses');if(lc){const p=courses.filter(c=>c.pin);lc.textContent=p.length?p.map(c=>c.name).join(' · '):'No pinned courses yet.';}
+}
+function loadMaps(){
+  d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(world=>{
+    const countries=topojson.feature(world,world.objects.countries);
+    const isDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const lf=isDark?'#2C3A2C':'#c8dab0',st=isDark?'rgba(255,255,255,0.1)':'#fff',oc=isDark?'#1a2633':'#c8dff0';
+    function bm(id){
+      const s=d3.select('#'+id);s.selectAll('*').remove();
+      const proj=d3.geoNaturalEarth1().scale(153).translate([400,200]);
+      const pth=d3.geoPath(proj);
+      s.append('rect').attr('width',800).attr('height',400).attr('fill',oc);
+      s.selectAll('path').data(countries.features).join('path').attr('d',pth).attr('fill',lf).attr('stroke',st).attr('stroke-width',0.5);
+      return{s,proj};
+    }
+    const mini=bm('mini-map');miniProjection=mini.proj;
+    mini.s.on('click',function(event){
+      const[mx,my]=d3.pointer(event,this);const[lng,lat]=mini.proj.invert([mx,my]);
+      pendingPin={lat:+lat.toFixed(4),lng:+lng.toFixed(4)};
+      document.getElementById('pin-coords').textContent=`Pin set: ${lat.toFixed(2)}°, ${lng.toFixed(2)}°`;
+      renderMiniPins();
+    });
+    const wm=bm('world-map');worldLoaded=true;worldSvgEl=wm.s;worldProjection=wm.proj;renderWorldMap();
+  });
+}
+
+
+// ── COURSE SEARCH ──────────────────────────────────────────────
+let searchDebounceTimer=null;
+let selectedCourseData=null;
+
+function onCourseSearchInput(val){
+  clearTimeout(searchDebounceTimer);
+  const results=document.getElementById('course-search-results');
+  if(val.trim().length<2){results.style.display='none';return;}
+  searchDebounceTimer=setTimeout(()=>runCourseSearch(val.trim()),500);
+}
+
+async function runCourseSearch(query){
+  const spinner=document.getElementById('course-search-spinner');
+  const results=document.getElementById('course-search-results');
+  spinner.style.display='block';
+  results.style.display='none';
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        system:`You are a golf course database. When given a course name, search for it and return accurate data. 
+Always respond with ONLY a valid JSON array (no markdown, no explanation) of up to 5 matching courses.
+Each object must have: name, location, city, state, country, courseRating (number, blue/white tees), slopeRating (number), par (number), lat (number), lng (number), website (string or null).
+If you can't find exact data use your best estimate but never invent a course that doesn't exist.
+Example: [{"name":"Pebble Beach Golf Links","location":"Pebble Beach, CA","city":"Pebble Beach","state":"CA","country":"USA","courseRating":74.7,"slopeRating":144,"par":72,"lat":36.5681,"lng":-121.9486,"website":"pebblebeach.com"}]`,
+        messages:[{role:'user',content:`Find golf course: "${query}". Return JSON array of matches.`}]
+      })
+    });
+    const data=await resp.json();
+    const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    const clean=text.replace(/```json|```/g,'').trim();
+    let courses_found=[];
+    try{courses_found=JSON.parse(clean);}catch(e){
+      // Try to extract JSON array from text
+      const m=clean.match(/\[[\s\S]*\]/);
+      if(m)courses_found=JSON.parse(m[0]);
+    }
+    renderSearchResults(courses_found);
+  }catch(err){
+    results.innerHTML='<div style="padding:12px 14px;font-size:13px;color:var(--text-secondary);">Search failed — try again or enter details manually.</div>';
+    results.style.display='block';
+  }
+  spinner.style.display='none';
+}
+
+function renderSearchResults(list){
+  const results=document.getElementById('course-search-results');
+  if(!list||!list.length){
+    results.innerHTML='<div style="padding:12px 14px;font-size:13px;color:var(--text-secondary);">No courses found. Try a different spelling or enter details manually below.</div>';
+    results.style.display='block';
+    return;
+  }
+  results.innerHTML=list.map((c,i)=>`
+    <div class="search-result-item" onclick="selectCourse(${i})" data-idx="${i}">
+      <div class="search-result-name">${c.name}</div>
+      <div class="search-result-meta">${c.location||[c.city,c.state,c.country].filter(Boolean).join(', ')}${c.courseRating?' · CR: '+c.courseRating:''}${c.slopeRating?' · Slope: '+c.slopeRating:''}${c.par?' · Par '+c.par:''}</div>
+    </div>`).join('');
+  results._data=list;
+  results.style.display='block';
+}
+
+function selectCourse(idx){
+  const results=document.getElementById('course-search-results');
+  const c=results._data[idx];
+  if(!c)return;
+  selectedCourseData=c;
+
+  // Auto-fill all fields
+  document.getElementById('f-name').value=c.name||'';
+  document.getElementById('f-loc').value=c.location||[c.city,c.state,c.country].filter(Boolean).join(', ')||'';
+  if(c.courseRating){document.getElementById('f-cr').value=c.courseRating;updateNetPreview();}
+  if(c.slopeRating){document.getElementById('f-slope').value=c.slopeRating;updateNetPreview();}
+
+  // Auto-pin on map
+  if(c.lat&&c.lng&&miniProjection){
+    pendingPin={lat:+c.lat,lng:+c.lng};
+    document.getElementById('pin-coords').textContent=`Pin set: ${(+c.lat).toFixed(2)}°, ${(+c.lng).toFixed(2)}°`;
+    renderMiniPins();
+  }
+
+  // Show preview card
+  document.getElementById('preview-name').textContent=c.name;
+  document.getElementById('preview-location').textContent=c.location||[c.city,c.state,c.country].filter(Boolean).join(', ')||'';
+  const stats=[];
+  if(c.courseRating)stats.push(`<div><div style="font-size:10px;color:var(--text-secondary);font-weight:600;">COURSE RATING</div><div style="font-size:15px;font-weight:700;">${c.courseRating}</div></div>`);
+  if(c.slopeRating)stats.push(`<div><div style="font-size:10px;color:var(--text-secondary);font-weight:600;">SLOPE</div><div style="font-size:15px;font-weight:700;">${c.slopeRating}</div></div>`);
+  if(c.par)stats.push(`<div><div style="font-size:10px;color:var(--text-secondary);font-weight:600;">PAR</div><div style="font-size:15px;font-weight:700;">${c.par}</div></div>`);
+  if(c.lat&&c.lng)stats.push(`<div><div style="font-size:10px;color:var(--text-secondary);font-weight:600;">PINNED</div><div style="font-size:15px;font-weight:700;">📍</div></div>`);
+  document.getElementById('preview-stats').innerHTML=stats.join('');
+  document.getElementById('course-info-preview').style.display='block';
+
+  // Hide search
+  document.getElementById('course-search-input').value=c.name;
+  document.getElementById('course-search-results').style.display='none';
+}
+
+function clearCourseSearch(){
+  selectedCourseData=null;
+  document.getElementById('course-search-input').value='';
+  document.getElementById('course-info-preview').style.display='none';
+  document.getElementById('f-name').value='';
+  document.getElementById('f-loc').value='';
+  document.getElementById('f-cr').value='';
+  document.getElementById('f-slope').value='';
+  pendingPin=null;
+  document.getElementById('pin-coords').textContent='';
+  document.getElementById('net-preview').style.display='none';
+  renderMiniPins();
+  document.getElementById('course-search-input').focus();
+}
+
+// Close search results when clicking outside
+document.addEventListener('click',function(e){
+  const results=document.getElementById('course-search-results');
+  if(results&&!results.contains(e.target)&&e.target.id!=='course-search-input'){
+    results.style.display='none';
+  }
+});
+// ── END COURSE SEARCH ──────────────────────────────────────────
+
+load();
+</script>
+</body>
+</html>
