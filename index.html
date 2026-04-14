@@ -1135,11 +1135,11 @@ function renderProfile(){
   const avatarHTML=profile.pic
     ? '<div style="position:relative;flex-shrink:0;">'
       +'<img src="'+profile.pic+'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid '+club.color+';">'
-      +'<button onclick="document.getElementById('pic-upload').click()" style="position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:'+club.color+';border:2px solid var(--bg-primary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;" title="Change photo">✎</button>'
+      +'<button onclick="triggerPicUpload()" style="position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:'+club.color+';border:2px solid var(--bg-primary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;" title="Change photo">&#9998;</button>'
       +'</div>'
     : '<div style="position:relative;flex-shrink:0;">'
       +'<div style="width:72px;height:72px;border-radius:50%;background:'+club.color+';display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#fff;">'+initials(profile.name)+'</div>'
-      +'<button onclick="document.getElementById('pic-upload').click()" style="position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:'+club.color+';border:2px solid var(--bg-primary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;" title="Add photo">+</button>'
+      +'<button onclick="triggerPicUpload()" style="position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:'+club.color+';border:2px solid var(--bg-primary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:700;" title="Add photo">+</button>'
       +'</div>';
 
   document.getElementById('profile-card').innerHTML=
@@ -1174,6 +1174,11 @@ function renderProfile(){
     +'<button class="btn" onclick="updateProfile()">Save changes</button>'
     +'<button class="btn btn-danger" onclick="logOut()">Log out</button>'
     +'</div></div>';
+}
+
+function triggerPicUpload(){
+  const el=document.getElementById('pic-upload');
+  if(el)el.click();
 }
 
 function handlePicUpload(event){
@@ -1505,9 +1510,9 @@ const COURSE_DB=[
   {name:'Golf Club Crans-sur-Sierre',location:'Crans-Montana, Switzerland',courseRating:70.7,slopeRating:127,par:70,lat:46.3082,lng:7.4764},
   {name:'Royal Antwerp Golf Club',location:'Kapellen, Belgium',courseRating:73.3,slopeRating:136,par:72,lat:51.3176,lng:4.4028},
   // Canada
-  {name:'St George's Golf & Country Club',location:'Toronto, ON, Canada',courseRating:75.3,slopeRating:143,par:70,lat:43.7001,lng:-79.5681},
+  {name:'St Georges Golf and Country Club',location:'Toronto, ON, Canada',courseRating:75.3,slopeRating:143,par:70,lat:43.7001,lng:-79.5681},
   {name:'Capilano Golf & Country Club',location:'West Vancouver, BC, Canada',courseRating:71.2,slopeRating:135,par:72,lat:49.3721,lng:-123.1654},
-  {name:'Cabot Links',location:'Inverness, NS, Canada',courseRating:74.5,slopeRating:138,par:70,lat:46.2167,lng:-61.1167},
+  {name:'Cabot Links',location:'Inverness NS Canada',courseRating:74.5,slopeRating:138,par:70,lat:46.2167,lng:-61.1167},
   {name:'Cabot Cliffs',location:'Inverness, NS, Canada',courseRating:75.9,slopeRating:145,par:72,lat:46.2200,lng:-61.1200},
   {name:'Royal Montreal Golf Club (Blue)',location:'Ile Bizard, QC, Canada',courseRating:73.9,slopeRating:135,par:70,lat:45.4941,lng:-73.8912},
   // Australia & Asia
@@ -1515,7 +1520,7 @@ const COURSE_DB=[
   {name:'Kingston Heath Golf Club',location:'Heatherton, VIC, Australia',courseRating:74.0,slopeRating:138,par:72,lat:-37.9523,lng:145.0842},
   {name:'New South Wales Golf Club',location:'La Perouse, NSW, Australia',courseRating:73.8,slopeRating:143,par:72,lat:-33.9983,lng:151.2341},
   {name:'The Australian Golf Club',location:'Rosebery, NSW, Australia',courseRating:74.3,slopeRating:141,par:72,lat:-33.9136,lng:151.2167},
-  {name:'Cape Kidnappers',location:'Hawke's Bay, New Zealand',courseRating:74.5,slopeRating:142,par:71,lat:-39.6500,lng:177.0833},
+  {name:'Cape Kidnappers',location:'Hawkes Bay, New Zealand',courseRating:74.5,slopeRating:142,par:71,lat:-39.6500,lng:177.0833},
   {name:'Kauri Cliffs',location:'Matauri Bay, New Zealand',courseRating:73.1,slopeRating:136,par:72,lat:-35.0167,lng:173.7500},
   {name:'Kasumigaseki Country Club (East)',location:'Kawagoe, Japan',courseRating:71.5,slopeRating:125,par:72,lat:35.9500,lng:139.4833},
   {name:'Mission Hills Golf Club',location:'Shenzhen, China',courseRating:74.2,slopeRating:137,par:72,lat:22.6833,lng:114.0167},
