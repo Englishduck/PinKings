@@ -159,6 +159,10 @@
   .search-result-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
   .search-result-meta { font-size: 12px; color: var(--text-secondary); margin-top:2px; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .drag-handle { font-size: 20px; color: var(--text-secondary); cursor: grab; padding: 0 8px 0 0; flex-shrink: 0; user-select: none; line-height: 1; display: flex; align-items: center; }
+  .drag-handle:active { cursor: grabbing; }
+  .drag-item { transition: opacity 0.15s; }
+  .drag-item.drag-over { border-top: 2px solid var(--green) !important; }
 </style>
 </head>
 <body>
@@ -251,13 +255,15 @@
     <div class="stat-grid" id="stats"></div>
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
       <input type="text" id="search" placeholder="Search courses..." style="flex:1;min-width:100px;padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);outline:none;" oninput="renderCourses()">
-      <select id="sortby" onchange="renderCourses()" style="padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);outline:none;">
-        <option value="rating">My rating</option>
+      <select id="sortby" onchange="onSortChange()" style="padding:8px 10px;font-size:13px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);outline:none;">
+        <option value="custom">My ranking</option>
+        <option value="pinkings">PinScore</option>
         <option value="net">Best net</option>
         <option value="gross">Best gross</option>
         <option value="name">Name A–Z</option>
         <option value="date">Date played</option>
       </select>
+      <button id="drag-toggle-btn" onclick="toggleDragMode()" class="btn-sm" style="white-space:nowrap;padding:8px 12px;font-size:12px;">✦ Reorder</button>
     </div>
     <div id="courses-list"></div>
   </div>
@@ -330,9 +336,29 @@
         <div style="text-align:center;"><div class="net-preview-label">Net score</div><div class="net-preview-val" id="np-net">—</div></div>
         <div style="text-align:right;"><div class="net-preview-label">vs par</div><div style="font-size:16px;font-weight:700;" id="np-par">—</div></div>
       </div>
-      <div class="field"><label>Your rating</label>
-        <div class="star-row" id="add-stars">
-          <span class="star" onclick="setStar(1)">★</span><span class="star" onclick="setStar(2)">★</span><span class="star" onclick="setStar(3)">★</span><span class="star" onclick="setStar(4)">★</span><span class="star" onclick="setStar(5)">★</span>
+      <div class="field">
+        <label>Course quality <span id="f-quality-val" style="font-weight:700;color:var(--green);">5</span><span style="color:var(--text-secondary);font-weight:400;">/10</span></label>
+        <input type="range" id="f-quality" min="1" max="10" value="5" step="1" oninput="document.getElementById('f-quality-val').textContent=this.value;updateCourseScore()" style="width:100%;accent-color:var(--green);">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-secondary);margin-top:2px;"><span>Poor</span><span>Average</span><span>World class</span></div>
+      </div>
+      <div class="field">
+        <label>Course layout <span id="f-layout-val" style="font-weight:700;color:var(--blue);">5</span><span style="color:var(--text-secondary);font-weight:400;">/10</span></label>
+        <input type="range" id="f-layout" min="1" max="10" value="5" step="1" oninput="document.getElementById('f-layout-val').textContent=this.value;updateCourseScore()" style="width:100%;accent-color:var(--blue);">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-secondary);margin-top:2px;"><span>Boring</span><span>Fun</span><span>Unforgettable</span></div>
+      </div>
+      <div id="course-score-preview" style="background:var(--bg-secondary);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div style="text-align:center;">
+          <div style="font-size:10px;font-weight:600;color:var(--text-secondary);margin-bottom:2px;">QUALITY</div>
+          <div id="cs-quality" style="font-size:22px;font-weight:700;color:var(--green);">5.0</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:10px;font-weight:600;color:var(--text-secondary);margin-bottom:2px;">LAYOUT</div>
+          <div id="cs-layout" style="font-size:22px;font-weight:700;color:var(--blue);">5.0</div>
+        </div>
+        <div style="flex:1;text-align:center;border-left:0.5px solid var(--border);padding-left:16px;">
+          <div style="font-size:10px;font-weight:600;color:var(--text-secondary);margin-bottom:2px;">PINKINGS SCORE</div>
+          <div id="cs-total" style="font-size:32px;font-weight:700;color:var(--amber);">5.0</div>
+          <div id="cs-label" style="font-size:11px;color:var(--text-secondary);">Average</div>
         </div>
       </div>
       <div class="field"><label>Notes</label><textarea id="f-notes" placeholder="Conditions, highlights, memorable moments..."></textarea></div>
@@ -375,7 +401,7 @@
     <div class="map-wrap" style="position:relative;">
       <svg id="world-map" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet"></svg>
       <div class="mtooltip" id="map-tooltip"></div>
-      <div class="map-hint">Hover pins for course details and ownership</div>
+      <div class="map-hint">Scroll or pinch to zoom · drag to pan · hover pins for details &nbsp;<button id="map-reset-btn" class="btn-sm" style="margin-left:8px;">Reset zoom</button></div>
     </div>
     <div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap;align-items:center;">
       <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);">
@@ -456,10 +482,13 @@
             <option value="outdoor">Outdoor</option><option value="sim">Simulator</option>
           </select>
         </div>
-        <div class="field"><label>Your rating</label>
-          <div class="star-row" id="edit-stars">
-            <span class="star" onclick="setEditStar(1)">★</span><span class="star" onclick="setEditStar(2)">★</span><span class="star" onclick="setEditStar(3)">★</span><span class="star" onclick="setEditStar(4)">★</span><span class="star" onclick="setEditStar(5)">★</span>
-          </div>
+        <div class="field">
+          <label>Course quality <span id="e-quality-val" style="font-weight:700;color:var(--green);">5</span>/10</label>
+          <input type="range" id="e-quality" min="1" max="10" value="5" step="1" oninput="document.getElementById('e-quality-val').textContent=this.value" style="width:100%;accent-color:var(--green);">
+        </div>
+        <div class="field">
+          <label>Course layout <span id="e-layout-val" style="font-weight:700;color:var(--blue);">5</span>/10</label>
+          <input type="range" id="e-layout" min="1" max="10" value="5" step="1" oninput="document.getElementById('e-layout-val').textContent=this.value" style="width:100%;accent-color:var(--blue);">
         </div>
         <div class="field"><label>Notes</label><textarea id="e-notes"></textarea></div>
         <div class="modal-acts">
@@ -505,6 +534,7 @@ function load(){
   friends=ls_get(FK)||[];
   notifications=ls_get(NK)||[];
   profile=ls_get(PK);
+  customOrder=ls_get('fw_custom_order')||null;
   if(profile){showMainApp();}
   else{document.getElementById('setup-screen').style.display='block';}
 }
@@ -620,9 +650,59 @@ function selectTee(tee){
   document.querySelectorAll('.tee-btn').forEach(b=>{const t=b.getAttribute('onclick').match(/selectTee\('(\w+)'/)[1];b.style.opacity=t===tee?'1':'0.55';b.style.fontWeight=t===tee?'700':'600';});
 }
 
-function setStar(v){addStar=v;document.querySelectorAll('#add-stars .star').forEach(s=>s.classList.toggle('on',+s.getAttribute('onclick').match(/\d+/)[0]<=v));}
-function setEditStar(v){editStar=v;document.querySelectorAll('#edit-stars .star').forEach(s=>s.classList.toggle('on',+s.getAttribute('onclick').match(/\d+/)[0]<=v));}
-function starsHTML(n){let h='';for(let i=1;i<=5;i++)h+=`<span style="color:${i<=n?'#EF9F27':'var(--border-mid)'};font-size:14px;">★</span>`;return h;}
+function getScoreLabel(s){
+  if(s>=9.5)return'Legendary';if(s>=8.5)return'Outstanding';if(s>=7.5)return'Excellent';
+  if(s>=6.5)return'Great';if(s>=5.5)return'Good';if(s>=4.5)return'Average';
+  if(s>=3)return'Below average';return'Poor';
+}
+function calcPinkingsScore(quality,layout,worldRank){
+  const base=(quality*0.45)+(layout*0.45);
+  let bonus=0;
+  if(worldRank&&worldRank>0){
+    if(worldRank<=10)bonus=0.5;
+    else if(worldRank<=25)bonus=0.35;
+    else if(worldRank<=50)bonus=0.2;
+    else if(worldRank<=100)bonus=0.1;
+  }
+  return Math.min(10,Math.round((base+bonus)*10)/10);
+}
+function updateCourseScore(){
+  const q=+(document.getElementById('f-quality')||{value:5}).value||5;
+  const l=+(document.getElementById('f-layout')||{value:5}).value||5;
+  const score=calcPinkingsScore(q,l,null);
+  const cq=document.getElementById('cs-quality');
+  const cl=document.getElementById('cs-layout');
+  const ct=document.getElementById('cs-total');
+  const clb=document.getElementById('cs-label');
+  if(cq)cq.textContent=q+'.0';
+  if(cl)cl.textContent=l+'.0';
+  if(ct)ct.textContent=score.toFixed(1);
+  if(clb)clb.textContent=getScoreLabel(score);
+}
+function scoreColor(s){
+  if(s>=8.5)return'#1D9E75';if(s>=6.5)return'#EF9F27';if(s>=4.5)return'#378ADD';return'#E24B4A';
+}
+function scoreBarHTML(quality,layout,pinkingsScore){
+  const qp=Math.round(quality*10),lp=Math.round(layout*10),pp=Math.round(pinkingsScore*10);
+  const sc=scoreColor(pinkingsScore);
+  return '<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:6px;">'
+    +'<div style="display:flex;align-items:center;gap:8px;font-size:12px;">'
+    +'<span style="width:56px;color:var(--text-secondary);font-weight:500;">Quality</span>'
+    +'<div style="flex:1;background:var(--bg-secondary);border-radius:4px;height:6px;">'
+    +'<div style="width:'+qp+'%;height:6px;border-radius:4px;background:var(--green);"></div></div>'
+    +'<span style="width:32px;text-align:right;font-weight:700;color:var(--green);">'+quality+'/10</span></div>'
+    +'<div style="display:flex;align-items:center;gap:8px;font-size:12px;">'
+    +'<span style="width:56px;color:var(--text-secondary);font-weight:500;">Layout</span>'
+    +'<div style="flex:1;background:var(--bg-secondary);border-radius:4px;height:6px;">'
+    +'<div style="width:'+lp+'%;height:6px;border-radius:4px;background:var(--blue);"></div></div>'
+    +'<span style="width:32px;text-align:right;font-weight:700;color:var(--blue);">'+layout+'/10</span></div>'
+    +'<div style="display:flex;align-items:center;gap:8px;font-size:12px;">'
+    +'<span style="width:56px;color:var(--text-secondary);font-weight:500;">PinScore</span>'
+    +'<div style="flex:1;background:var(--bg-secondary);border-radius:4px;height:6px;">'
+    +'<div style="width:'+pp+'%;height:6px;border-radius:4px;background:'+sc+';"></div></div>'
+    +'<span style="width:32px;text-align:right;font-weight:700;color:'+sc+';">'+pinkingsScore.toFixed(1)+'</span></div>'
+    +'</div>';
+}
 
 function updateNetPreview(){
   const g=document.getElementById('f-gross').value,cr=document.getElementById('f-cr').value,sl=document.getElementById('f-slope').value,h=getHcpIndex(document.getElementById('f-hcp-override').value),p=document.getElementById('net-preview');
@@ -648,18 +728,24 @@ function clearAdd(){
   const si=document.getElementById('course-search-input');if(si)si.value='';
   const pr=document.getElementById('course-info-preview');if(pr)pr.style.display='none';
   const sr=document.getElementById('course-search-results');if(sr)sr.style.display='none';
+  const fq=document.getElementById('f-quality');if(fq){fq.value=5;document.getElementById('f-quality-val').textContent='5';}
+  const fl=document.getElementById('f-layout');if(fl){fl.value=5;document.getElementById('f-layout-val').textContent='5';}
+  updateCourseScore();
 }
 
 function addCourse(){
   const name=document.getElementById('f-name').value.trim();
   if(!name){alert('Enter a course name.');return;}
-  if(!addStar){alert('Please rate this course.');return;}
+  const quality=+(document.getElementById('f-quality')||{value:5}).value||5;
+  const layout=+(document.getElementById('f-layout')||{value:5}).value||5;
   const g=document.getElementById('f-gross').value,cr=document.getElementById('f-cr').value,sl=document.getElementById('f-slope').value,h=getHcpIndex(document.getElementById('f-hcp-override').value);
   let ch=null,net=null;
   if(g&&h!=null){ch=calcCourseHcp(h,sl,cr);net=calcNet(g,ch);}
-  const course={id:Date.now(),name,location:document.getElementById('f-loc').value.trim(),date:document.getElementById('f-date').value,gross:g?+g:null,hcpIndex:h,courseHcp:ch,net,courseRating:cr?+cr:null,slope:sl?+sl:null,tee:selectedTee,type:roundType,rating:addStar,notes:document.getElementById('f-notes').value.trim(),pin:pendingPin?{lat:pendingPin.lat,lng:pendingPin.lng}:null,rounds:[]};
+  const pinkingsScore=calcPinkingsScore(quality,layout,null);
+  const course={id:Date.now(),name,location:document.getElementById('f-loc').value.trim(),date:document.getElementById('f-date').value,gross:g?+g:null,hcpIndex:h,courseHcp:ch,net,courseRating:cr?+cr:null,slope:sl?+sl:null,tee:selectedTee,type:roundType,quality,layout,pinkingsScore,rating:Math.round(pinkingsScore/2),notes:document.getElementById('f-notes').value.trim(),pin:pendingPin?{lat:pendingPin.lat,lng:pendingPin.lng}:null,rounds:[]};
   courses.push(course);
-  pushNotif(`Logged "${name}" (${roundType}).${net!=null?' Net: '+net+'.':''}`,'success');
+  if(customOrder){customOrder.push(course.id);ls_set('fw_custom_order',customOrder);}
+  pushNotif('Logged "'+name+'" ('+roundType+'). PinScore: '+pinkingsScore.toFixed(1)+'/10.','success');
   save();clearAdd();renderAll();switchTab('courses');
 }
 
@@ -740,38 +826,160 @@ function renderStats(){
   document.getElementById('stats').innerHTML=`<div class="stat"><div class="stat-lbl">Courses played</div><div class="stat-val">${total}</div></div><div class="stat"><div class="stat-lbl">Avg rating</div><div class="stat-val">${avg}</div></div><div class="stat"><div class="stat-lbl">I own</div><div class="stat-val">${owned}</div></div>`;
 }
 
-function renderCourses(){
-  renderStats();
-  const q=document.getElementById('search').value.toLowerCase(),sort=document.getElementById('sortby').value;
-  let list=[...courses].filter(c=>!q||c.name.toLowerCase().includes(q)||(c.location||'').toLowerCase().includes(q));
-  if(sort==='rating')list.sort((a,b)=>b.rating-a.rating);
+let dragMode=false;
+let customOrder=null; // array of course ids in user-defined order
+let dragSrcIdx=null;
+
+function onSortChange(){
+  const sort=document.getElementById('sortby').value;
+  if(sort!=='custom') dragMode=false;
+  updateDragBtn();
+  renderCourses();
+}
+
+function toggleDragMode(){
+  const sort=document.getElementById('sortby').value;
+  if(sort!=='custom'){
+    document.getElementById('sortby').value='custom';
+    initCustomOrder();
+  }
+  dragMode=!dragMode;
+  updateDragBtn();
+  renderCourses();
+}
+
+function updateDragBtn(){
+  const btn=document.getElementById('drag-toggle-btn');
+  if(!btn)return;
+  if(dragMode){
+    btn.textContent='✔ Done reordering';
+    btn.style.background='var(--green)';
+    btn.style.color='#fff';
+    btn.style.borderColor='var(--green)';
+  } else {
+    btn.textContent='✦ Reorder';
+    btn.style.background='';
+    btn.style.color='';
+    btn.style.borderColor='';
+  }
+}
+
+function initCustomOrder(){
+  if(!customOrder||customOrder.length===0){
+    customOrder=courses.map(c=>c.id);
+  } else {
+    // Add any new courses not yet in custom order
+    courses.forEach(c=>{if(!customOrder.includes(c.id))customOrder.push(c.id);});
+    // Remove deleted courses
+    customOrder=customOrder.filter(id=>courses.find(c=>c.id===id));
+  }
+  ls_set('fw_custom_order',customOrder);
+}
+
+function getOrderedCourses(q){
+  let list=courses.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.location||'').toLowerCase().includes(q));
+  const sort=document.getElementById('sortby').value;
+  if(sort==='custom'){
+    if(!customOrder)initCustomOrder();
+    list.sort((a,b)=>{
+      const ai=customOrder.indexOf(a.id),bi=customOrder.indexOf(b.id);
+      return (ai===-1?9999:ai)-(bi===-1?9999:bi);
+    });
+  } else if(sort==='pinkings')list.sort((a,b)=>(b.pinkingsScore||0)-(a.pinkingsScore||0));
   else if(sort==='net')list.sort((a,b)=>(a.net!=null?a.net:999)-(b.net!=null?b.net:999));
   else if(sort==='gross')list.sort((a,b)=>(a.gross!=null?a.gross:999)-(b.gross!=null?b.gross:999));
   else if(sort==='name')list.sort((a,b)=>a.name.localeCompare(b.name));
   else if(sort==='date')list.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const byRating=[...courses].sort((a,b)=>b.rating-a.rating);
+  return list;
+}
+
+function renderCourses(){
+  renderStats();
+  const q=document.getElementById('search').value.toLowerCase();
+  const list=getOrderedCourses(q);
   const el=document.getElementById('courses-list');
-  if(!list.length){el.innerHTML=`<div class="empty">${courses.length?'No courses match your search.':'No courses yet — add your first round!'}</div>`;return;}
-  el.innerHTML=list.map(c=>{
-    const myRank=byRating.findIndex(x=>x.id===c.id)+1,owner=getOwner(c);
+  if(!list.length){el.innerHTML='<div class="empty">'+(courses.length?'No courses match your search.':'No courses yet — add your first round!')+'</div>';return;}
+  el.innerHTML=list.map((c,displayIdx)=>{
+    const rank=displayIdx+1;
+    const owner=getOwner(c);
     const comm=Math.round(((Math.abs(hashStr(c.name))%30+55)/10)*10)/10,barPct=Math.round((comm/5)*100);
     const dateStr=c.date?new Date(c.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
-    const rankCls=myRank===1?'r1':myRank===2?'r2':myRank===3?'r3':'rn';
+    const rankCls=rank===1?'r1':rank===2?'r2':rank===3?'r3':'rn';
     const ownerClub=owner&&owner.clubId!=null?getClub(owner.clubId):null;
-    const ownerB=owner?`<span class="badge badge-gold">${owner.name==='Me'?'▶ ':''}${owner.name} owns it${ownerClub?' '+ownerClub.emoji:''}</span>`:'';
+    const ownerB=owner?'<span class="badge badge-gold">'+(owner.name==='Me'?'▶ ':'')+owner.name+' owns it'+(ownerClub?' '+ownerClub.emoji:'')+'</span>':'';
     const typeB=c.type==='sim'?'<span class="badge badge-purple">Simulator</span>':'<span class="badge badge-green">Outdoor</span>';
-    const teeB=c.tee?`<span class="badge badge-gray" style="border-left:3px solid ${TEE_COLORS[c.tee]||'#888'};border-radius:0 4px 4px 0;padding-left:6px;">${c.tee}</span>`:'';
-    return`<div class="course-card"><div class="rank-circle ${rankCls}">#${myRank}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:2px;"><span style="font-size:15px;font-weight:700;">${c.name}</span>${typeB}${teeB}${ownerB}${c.pin?'<span class="badge badge-gray">📍 Pinned</span>':''}</div>
-        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:5px;">${[c.location,dateStr].filter(Boolean).join(' · ')}</div>
-        <div style="margin-bottom:5px;">${starsHTML(c.rating)}</div>
-        ${c.gross!=null?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:5px;">Gross: <b style="color:var(--text-primary);">${c.gross}</b>${c.courseHcp!=null?' · Course HCP: '+c.courseHcp:''}${c.net!=null?' · Net: <b style="color:var(--green);">'+c.net+'</b>':''}</div>`:''}
-        ${c.notes?`<div style="font-size:12px;color:var(--text-secondary);font-style:italic;margin-bottom:6px;">"${c.notes}"</div>`:''}
-        <div style="margin-bottom:8px;"><div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px;">Community rating: ${comm.toFixed(1)}/5</div><div class="bar-outer"><div class="bar-inner" style="width:${barPct}%;background:var(--green);"></div></div></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-sm" onclick="openEdit(${c.id})">Edit</button><button class="btn-sm btn-sm-danger" onclick="deleteCourse(${c.id})">Remove</button></div>
-      </div></div>`;
+    const teeB=c.tee?'<span class="badge badge-gray" style="border-left:3px solid '+(TEE_COLORS[c.tee]||'#888')+';border-radius:0 4px 4px 0;padding-left:6px;">'+c.tee+'</span>':'';
+    const dragHandle=dragMode
+      ? '<div class="drag-handle" title="Drag to reorder">⠿</div>'
+      : '';
+    const dragAttrs=dragMode
+      ? 'draggable="true" ondragstart="dragStart(event,'+displayIdx+')" ondragover="dragOver(event)" ondrop="dragDrop(event,'+displayIdx+')" ondragend="dragEnd(event)" ondragleave="dragLeave(event)"'
+      : '';
+    return '<div class="course-card drag-item" data-idx="'+displayIdx+'" '+dragAttrs+'>'
+      +dragHandle
+      +'<div class="rank-circle '+rankCls+'">#'+rank+'</div>'
+      +'<div style="flex:1;min-width:0;">'
+      +'<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:2px;">'
+      +'<span style="font-size:15px;font-weight:700;">'+c.name+'</span>'+typeB+teeB+ownerB
+      +(c.pin?'<span class="badge badge-gray">📍 Pinned</span>':'')
+      +'</div>'
+      +'<div style="font-size:12px;color:var(--text-secondary);margin-bottom:5px;">'+[c.location,dateStr].filter(Boolean).join(' · ')+'</div>'
+      +scoreBarHTML(c.quality||5,c.layout||5,c.pinkingsScore||calcPinkingsScore(c.quality||5,c.layout||5,null))
+      +(c.gross!=null?'<div style="font-size:12px;color:var(--text-secondary);margin-bottom:5px;">Gross: <b style="color:var(--text-primary);">'+c.gross+'</b>'+(c.courseHcp!=null?' · Course HCP: '+c.courseHcp:'')+(c.net!=null?' · Net: <b style="color:var(--green);">'+c.net+'</b>':'')+'</div>':'')
+      +(c.notes?'<div style="font-size:12px;color:var(--text-secondary);font-style:italic;margin-bottom:6px;">"'+c.notes+'"</div>':'')
+      +'<div style="margin-bottom:8px;"><div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px;">Community rating: '+comm.toFixed(1)+'/5</div>'
+      +'<div class="bar-outer"><div class="bar-inner" style="width:'+barPct+'%;background:var(--green);"></div></div></div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+      +(dragMode?'':'<button class="btn-sm" onclick="openEdit('+c.id+')">Edit</button><button class="btn-sm btn-sm-danger" onclick="deleteCourse('+c.id+')">Remove</button>')
+      +'</div>'
+      +'</div></div>';
   }).join('');
+
+  if(dragMode){
+    const hint=document.createElement('div');
+    hint.style.cssText='text-align:center;font-size:12px;color:var(--text-secondary);padding:8px;margin-bottom:8px;';
+    hint.textContent='Drag the ⠿ handle to reorder your rankings';
+    el.insertBefore(hint,el.firstChild);
+  }
+}
+
+// ── DRAG AND DROP ──
+function dragStart(event,idx){
+  dragSrcIdx=idx;
+  event.dataTransfer.effectAllowed='move';
+  event.dataTransfer.setData('text/plain',idx);
+  setTimeout(()=>event.target.closest('.drag-item').style.opacity='0.4',0);
+}
+function dragOver(event){
+  event.preventDefault();
+  event.dataTransfer.dropEffect='move';
+  const card=event.target.closest('.drag-item');
+  if(card) card.style.borderTop='2px solid var(--green)';
+}
+function dragLeave(event){
+  const card=event.target.closest('.drag-item');
+  if(card) card.style.borderTop='';
+}
+function dragEnd(event){
+  event.target.closest('.drag-item').style.opacity='1';
+  document.querySelectorAll('.drag-item').forEach(c=>{c.style.borderTop='';c.style.opacity='1';});
+}
+function dragDrop(event,toIdx){
+  event.preventDefault();
+  if(dragSrcIdx===null||dragSrcIdx===toIdx)return;
+  const q=document.getElementById('search').value.toLowerCase();
+  const list=getOrderedCourses(q);
+  // Reorder the customOrder array
+  if(!customOrder)initCustomOrder();
+  const fromId=list[dragSrcIdx].id;
+  const toId=list[toIdx].id;
+  const fromPos=customOrder.indexOf(fromId);
+  const toPos=customOrder.indexOf(toId);
+  customOrder.splice(fromPos,1);
+  customOrder.splice(toPos,0,fromId);
+  ls_set('fw_custom_order',customOrder);
+  dragSrcIdx=null;
+  renderCourses();
 }
 
 function setLbMode(m){lbMode=m;document.getElementById('lb-net-btn').className='lb-tab'+(m==='net'?' active':'');document.getElementById('lb-gross-btn').className='lb-tab'+(m==='gross'?' active':'');renderLeaderboard();}
@@ -903,11 +1111,13 @@ function updateProfile(){
 }
 function logOut(){if(!confirm('Log out of PinKings?'))return;profile=null;save();document.getElementById('main-app').style.display='none';document.getElementById('setup-screen').style.display='block';showSignup();}
 
-function deleteCourse(id){const c=courses.find(x=>x.id===id);if(!confirm('Remove "'+c.name+'"?'))return;courses=courses.filter(x=>x.id!==id);pushNotif(`"${c.name}" removed.`,'warning');save();renderAll();}
+function deleteCourse(id){const c=courses.find(x=>x.id===id);if(!confirm('Remove "'+c.name+'"?'))return;courses=courses.filter(x=>x.id!==id);if(customOrder){customOrder=customOrder.filter(i=>i!==id);ls_set('fw_custom_order',customOrder);}pushNotif('"'+c.name+'" removed.','warning');save();renderAll();}
 function openEdit(id){
   const c=courses.find(x=>x.id===id);if(!c)return;editId=id;editStar=c.rating;
   document.getElementById('e-name').value=c.name;document.getElementById('e-loc').value=c.location||'';document.getElementById('e-date').value=c.date||'';document.getElementById('e-gross').value=c.gross||'';document.getElementById('e-hcp').value=c.hcpIndex!=null?c.hcpIndex:'';document.getElementById('e-cr').value=c.courseRating||'';document.getElementById('e-slope').value=c.slope||'';document.getElementById('e-notes').value=c.notes||'';document.getElementById('e-type').value=c.type||'outdoor';
-  setEditStar(c.rating);document.getElementById('edit-net-preview').textContent='';document.getElementById('edit-modal-wrap').style.display='block';
+  const eq=document.getElementById('e-quality');if(eq){eq.value=c.quality||5;document.getElementById('e-quality-val').textContent=c.quality||5;}
+  const el2=document.getElementById('e-layout');if(el2){el2.value=c.layout||5;document.getElementById('e-layout-val').textContent=c.layout||5;}
+  document.getElementById('edit-net-preview').textContent='';document.getElementById('edit-modal-wrap').style.display='block';
 }
 function closeEdit(){document.getElementById('edit-modal-wrap').style.display='none';editId=null;}
 function saveEdit(){
@@ -915,7 +1125,11 @@ function saveEdit(){
   c.name=document.getElementById('e-name').value.trim();c.location=document.getElementById('e-loc').value.trim();c.date=document.getElementById('e-date').value;c.gross=document.getElementById('e-gross').value?+document.getElementById('e-gross').value:null;
   const hi=document.getElementById('e-hcp').value?+document.getElementById('e-hcp').value:getHcpIndex(null);c.hcpIndex=hi;c.courseRating=document.getElementById('e-cr').value?+document.getElementById('e-cr').value:null;c.slope=document.getElementById('e-slope').value?+document.getElementById('e-slope').value:null;
   if(c.gross!=null&&hi!=null){c.courseHcp=calcCourseHcp(hi,c.slope,c.courseRating);c.net=calcNet(c.gross,c.courseHcp);}
-  c.notes=document.getElementById('e-notes').value.trim();c.rating=editStar;c.type=document.getElementById('e-type').value;
+  c.notes=document.getElementById('e-notes').value.trim();c.type=document.getElementById('e-type').value;
+  c.quality=+(document.getElementById('e-quality')||{value:5}).value||5;
+  c.layout=+(document.getElementById('e-layout')||{value:5}).value||5;
+  c.pinkingsScore=calcPinkingsScore(c.quality,c.layout,null);
+  c.rating=Math.round(c.pinkingsScore/2);
   pushNotif(`"${c.name}" updated.`,'info');save();closeEdit();renderAll();
 }
 
@@ -935,14 +1149,24 @@ function renderMiniPins(){
 }
 function renderWorldMap(){
   if(!worldLoaded||!worldSvgEl)return;
-  worldSvgEl.selectAll('.pin-group').remove();
+  const mapG=worldSvgEl.select('.map-g');
+  mapG.selectAll('.pin-group').remove();
   const tt=document.getElementById('map-tooltip');
   courses.filter(c=>c.pin).forEach(c=>{
     if(!worldProjection)return;
     const[px,py]=worldProjection([c.pin.lng,c.pin.lat]);
-    const g=drawPin(worldSvgEl,px,py,c.type||'outdoor');g.style('cursor','pointer');
+    const g=drawPin(mapG,px,py,c.type||'outdoor');g.style('cursor','pointer');
     const owner=getOwner(c),ownerClub=owner&&owner.clubId!=null?getClub(owner.clubId):null;
-    g.on('mouseover',()=>{tt.style.display='block';tt.innerHTML=`<b style="color:var(--text-primary);">${c.name}</b>${c.location?'<br><span style="color:var(--text-secondary);">'+c.location+'</span>':''}<br><span style="color:${c.type==='sim'?'#7F77DD':'#1D9E75'};font-size:11px;">${c.type==='sim'?'Simulator':'Outdoor'}</span>${c.net!=null?'<br>Net: '+c.net:''}${owner?'<br><b style="color:#1D9E75;">'+(ownerClub?ownerClub.emoji+' ':'')+owner.name+' owns it</b>':''}`;});
+    const ps=c.pinkingsScore?c.pinkingsScore.toFixed(1):null;
+    g.on('mouseover',function(event){
+      tt.style.display='block';
+      tt.innerHTML='<b style="color:var(--text-primary);">'+c.name+'</b>'
+        +(c.location?'<br><span style="color:var(--text-secondary);">'+c.location+'</span>':'')
+        +'<br><span style="color:'+(c.type==='sim'?'#7F77DD':'#1D9E75')+';font-size:11px;">'+(c.type==='sim'?'Simulator':'Outdoor')+'</span>'
+        +(ps?'<br>PinScore: <b style="color:#EF9F27;">'+ps+'/10</b>':'')
+        +(c.net!=null?'<br>Net: '+c.net:'')
+        +(owner?'<br><b style="color:#1D9E75;">'+(ownerClub?ownerClub.emoji+' ':'')+owner.name+' owns it</b>':'');
+    });
     g.on('mousemove',function(event){const r=document.getElementById('world-map').getBoundingClientRect();tt.style.left=(event.clientX-r.left+12)+'px';tt.style.top=(event.clientY-r.top+12)+'px';});
     g.on('mouseleave',()=>tt.style.display='none');
   });
@@ -953,22 +1177,45 @@ function loadMaps(){
     const countries=topojson.feature(world,world.objects.countries);
     const isDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
     const lf=isDark?'#2C3A2C':'#c8dab0',st=isDark?'rgba(255,255,255,0.1)':'#fff',oc=isDark?'#1a2633':'#c8dff0';
-    function bm(id){
-      const s=d3.select('#'+id);s.selectAll('*').remove();
+
+    function buildMiniMap(){
+      const s=d3.select('#mini-map');s.selectAll('*').remove();
       const proj=d3.geoNaturalEarth1().scale(153).translate([400,200]);
       const pth=d3.geoPath(proj);
       s.append('rect').attr('width',800).attr('height',400).attr('fill',oc);
       s.selectAll('path').data(countries.features).join('path').attr('d',pth).attr('fill',lf).attr('stroke',st).attr('stroke-width',0.5);
-      return{s,proj};
+      miniProjection=proj;
+      s.on('click',function(event){
+        const[mx,my]=d3.pointer(event,this);
+        const[lng,lat]=proj.invert([mx,my]);
+        pendingPin={lat:+lat.toFixed(4),lng:+lng.toFixed(4)};
+        document.getElementById('pin-coords').textContent='Pin set: '+lat.toFixed(2)+'°, '+lng.toFixed(2)+'°';
+        renderMiniPins();
+      });
     }
-    const mini=bm('mini-map');miniProjection=mini.proj;
-    mini.s.on('click',function(event){
-      const[mx,my]=d3.pointer(event,this);const[lng,lat]=mini.proj.invert([mx,my]);
-      pendingPin={lat:+lat.toFixed(4),lng:+lng.toFixed(4)};
-      document.getElementById('pin-coords').textContent=`Pin set: ${lat.toFixed(2)}°, ${lng.toFixed(2)}°`;
-      renderMiniPins();
-    });
-    const wm=bm('world-map');worldLoaded=true;worldSvgEl=wm.s;worldProjection=wm.proj;renderWorldMap();
+
+    function buildWorldMap(){
+      const s=d3.select('#world-map');s.selectAll('*').remove();
+      const proj=d3.geoNaturalEarth1().scale(153).translate([400,200]);
+      const pth=d3.geoPath(proj);
+      s.append('rect').attr('class','ocean-bg').attr('width',800).attr('height',400).attr('fill',oc);
+      const g=s.append('g').attr('class','map-g');
+      g.selectAll('path').data(countries.features).join('path').attr('d',pth).attr('fill',lf).attr('stroke',st).attr('stroke-width',0.5);
+      worldSvgEl=s;worldProjection=proj;worldLoaded=true;
+      // Zoom behaviour
+      const zoom=d3.zoom().scaleExtent([1,12]).on('zoom',function(event){
+        g.attr('transform',event.transform);
+        s.selectAll('.pin-group').attr('transform',event.transform);
+      });
+      s.call(zoom);
+      // Reset button
+      const resetBtn=document.getElementById('map-reset-btn');
+      if(resetBtn) resetBtn.onclick=()=>s.transition().duration(400).call(zoom.transform,d3.zoomIdentity);
+      renderWorldMap();
+    }
+
+    buildMiniMap();
+    buildWorldMap();
   });
 }
 
