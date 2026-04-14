@@ -506,6 +506,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script>
 const SK='fw_courses_v6',FK='fw_friends_v4',NK='fw_notifs_v3',PK='fw_profile_v2';
+const GOLFAPI_KEY='XDPANYRQYNVHWNJOWZ3XY63JX4';
 let courses=[],friends=[],notifications=[],profile=null;
 let addStar=0,editStar=0,editId=null,pendingPin=null,roundType='outdoor',selectedTee='blue',lbMode='net';
 const TEE_COLORS={championship:'#E24B4A',black:'#1a1a1a',blue:'#378ADD',white:'#bbb',gold:'#EF9F27',red:'#fce8e8'};
@@ -550,7 +551,7 @@ function signUp(){
   if(!pass||pass.length<6){alert('Password must be at least 6 characters.');return;}
   const hcp=document.getElementById('s-hcp').value,home=document.getElementById('s-home').value.trim();
   const clubId=Math.floor(Math.random()*6);
-  profile={name:first+' '+last,firstName:first,email,handicap:hcp?+hcp:null,home,clubId,joined:new Date().toISOString()};
+  profile={name:first+' '+last,firstName:first,email,pass,handicap:hcp?+hcp:null,home,clubId,joined:new Date().toISOString(),pic:null};
   save();
   document.getElementById('setup-screen').style.display='none';
   showClubReveal(clubId);
@@ -558,10 +559,20 @@ function signUp(){
 
 function logIn(){
   const email=document.getElementById('l-email').value.trim();
+  const pass=document.getElementById('l-pass').value;
   if(!email){alert('Enter your email.');return;}
+  if(!pass){alert('Enter your password.');return;}
   const saved=ls_get(PK);
-  if(saved&&saved.email===email){profile=saved;showMainApp();}
-  else{alert('No account found. Please sign up.');}
+  if(!saved){alert('No account found — please sign up first.');return;}
+  if(saved.email!==email){alert('No account found with that email.');return;}
+  if(saved.pass&&saved.pass!==pass){alert('Incorrect password. Please try again.');return;}
+  profile=saved;
+  if(!profile.pass){profile.pass=pass;ls_set(PK,profile);}
+  courses=ls_get(SK)||[];
+  friends=ls_get(FK)||[];
+  notifications=ls_get(NK)||[];
+  customOrder=ls_get('fw_custom_order')||null;
+  showMainApp();
 }
 
 function showClubReveal(clubId){
@@ -1288,7 +1299,7 @@ function loadMaps(){
       const proj=d3.geoNaturalEarth1().scale(153).translate([400,200]);
       const pth=d3.geoPath(proj);
       s.append('rect').attr('width',800).attr('height',400).attr('fill',oc);
-      s.selectAll('path').data(countries.features).join('path').attr('d',pth).attr('fill',lf).attr('stroke',st).attr('stroke-width',0.5);
+      s.selectAll('path').data(countries.features).join('path').attr('d',pth).attr('fill',lf).attr('stroke',isDark?'rgba(255,255,255,.15)':'rgba(255,255,255,.25)').attr('stroke-width',.6);
       miniProjection=proj;
       s.on('click',function(event){
         const[mx,my]=d3.pointer(event,this);
@@ -1305,7 +1316,7 @@ function loadMaps(){
       const pth=d3.geoPath(proj);
       s.append('rect').attr('class','ocean-bg').attr('width',800).attr('height',400).attr('fill',oc);
       const g=s.append('g').attr('class','map-g');
-      g.selectAll('path').data(countries.features).join('path').attr('d',pth).attr('fill',lf).attr('stroke',st).attr('stroke-width',0.5);
+      g.selectAll('path').data(countries.features).join('path').attr('d',pth).attr('fill',lf).attr('stroke',isDark?'rgba(255,255,255,.15)':'rgba(255,255,255,.25)').attr('stroke-width',.6);
       worldSvgEl=s;worldProjection=proj;worldLoaded=true;
       // Zoom behaviour
       const zoom=d3.zoom().scaleExtent([1,12]).on('zoom',function(event){
@@ -1341,8 +1352,7 @@ function onCourseSearchInput(val){
 // 1. Go to https://rapidapi.com/golfcourse-api/api/golf-course-finder
 // 2. Sign up free → Subscribe to Basic (free, 500 req/month)
 // 3. Copy your RapidAPI key and paste it below replacing YOUR_RAPIDAPI_KEY_HERE
-const RAPIDAPI_KEY = 'YOUR_RAPIDAPI_KEY_HERE'; // no longer used
-const GOLFAPI_KEY = 'PASTE_YOUR_GOLFCOURSEAPI_KEY_HERE';
+const RAPIDAPI_KEY = 'YOUR_RAPIDAPI_KEY_HERE';
 
 async function runCourseSearch(query){
   const spinner=document.getElementById('course-search-spinner');
@@ -1350,51 +1360,32 @@ async function runCourseSearch(query){
   spinner.style.display='block';
   results.style.display='none';
 
-  // GolfCourseAPI — 30,000 courses, free with email signup at golfcourseapi.com
-  if(GOLFAPI_KEY && GOLFAPI_KEY !== 'XDPANYRQYNVHWNJOWZ3XY63JX4'){
+  // Try RapidAPI Golf Course Finder first (50,000+ courses)
+  if(RAPIDAPI_KEY && RAPIDAPI_KEY !== 'YOUR_RAPIDAPI_KEY_HERE'){
     try{
-      const resp=await fetch('https://api.golfcourseapi.com/v1/search?search_query='+encodeURIComponent(query),{
-        headers:{'Authorization':'Key '+GOLFAPI_KEY}
+      const resp=await fetch('https://golf-course-finder.p.rapidapi.com/courses?name='+encodeURIComponent(query)+'&limit=10',{
+        headers:{
+          'X-RapidAPI-Key': RAPIDAPI_KEY,
+          'X-RapidAPI-Host': 'golf-course-finder.p.rapidapi.com'
+        }
       });
       if(resp.ok){
         const data=await resp.json();
-        const raw=data.courses||[];
-        const list=raw.slice(0,10).map(c=>{
-          const maleTees=c.tees&&c.tees.male?c.tees.male:[];
-          const blueTee=maleTees.find(t=>(t.tee_name||'').toLowerCase().includes('blue'))||maleTees[0]||{};
-          return {
-            name:c.club_name||c.course_name||'Unknown',
-            location:[c.city,c.state_name,c.country_name].filter(Boolean).join(', '),
-            courseRating:parseFloat(blueTee.course_rating)||null,
-            slopeRating:parseFloat(blueTee.slope_rating)||null,
-            par:parseInt(blueTee.par)||72,
-            lat:c.location?parseFloat(c.location.latitude)||null:null,
-            lng:c.location?parseFloat(c.location.longitude)||null:null
-          };
-        }).filter(c=>c.name!=='Unknown');
+        const courses_raw=data.courses||data.data||data||[];
+        const list=courses_raw.slice(0,8).map(c=>({
+          name:c.name||c.club_name||c.course_name||'Unknown',
+          location:[c.city,c.state||c.state_name,c.country||c.country_name].filter(Boolean).join(', '),
+          courseRating:parseFloat(c.course_rating||c.rating||0)||null,
+          slopeRating:parseFloat(c.slope_rating||c.slope||0)||null,
+          par:parseInt(c.par||72),
+          lat:parseFloat(c.latitude||c.lat||0)||null,
+          lng:parseFloat(c.longitude||c.lng||c.lon||0)||null
+        })).filter(c=>c.name!=='Unknown');
         if(list.length){renderSearchResults(list);spinner.style.display='none';return;}
       }
-    }catch(e){console.log('GolfCourseAPI error:',e);}
+    }catch(e){}
   }
 
-  // Fallback to built-in database
-  const fallback=searchFallback(query);
-  if(fallback.length){
-    renderSearchResults(fallback);
-  } else {
-    results.innerHTML='<div style="padding:12px 14px;">'
-      +'<div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">No courses found for "'+query+'"</div>'
-      +'<div style="font-size:12px;color:var(--text-secondary);">Try a shorter search term or fill in the details manually below.</div>'
-      +((!GOLFAPI_KEY||GOLFAPI_KEY==='PASTE_YOUR_GOLFCOURSEAPI_KEY_HERE')
-        ? '<div style="font-size:12px;color:var(--blue);margin-top:8px;">💡 <b>Unlock 30,000 courses free:</b> Sign up at golfcourseapi.com, get your key, and paste it in the code where it says PASTE_YOUR_GOLFCOURSEAPI_KEY_HERE</div>'
-        : '')
-      +'</div>';
-    results.style.display='block';
-  }
-  spinner.style.display='none';
-}
-  
-  
   // Try Open Golf API (free, no key needed, good US coverage)
   try{
     const resp=await fetch('https://api.opengolf.dev/v1/courses/search?q='+encodeURIComponent(query)+'&limit=10');
@@ -1416,7 +1407,7 @@ async function runCourseSearch(query){
   // Try GolfCourseAPI (free demo)
   try{
     const resp=await fetch('https://api.golfcourseapi.com/v1/search?search_query='+encodeURIComponent(query),{
-      headers:{'Authorization':'Key GOLFAPI-FREE-DEMO'}
+      headers:{'Authorization':'Key '+GOLFAPI_KEY}
     });
     if(resp.ok){
       const data=await resp.json();
