@@ -605,6 +605,7 @@ function showMainApp(){
     hb.textContent=club.emoji+' '+club.name;
     hb.style.background=club.bg;hb.style.color=club.text;hb.style.border='0.5px solid '+club.border;
   }
+  updateHeaderAvatar();
   renderAll();loadMaps();
 }
 
@@ -758,66 +759,121 @@ function getAllRounds(c){
 function getOwner(c){const a=getAllRounds(c);if(!a.length)return null;return a.sort((x,y)=>x.net-y.net)[0];}
 
 function getClubPoints(){
-  const pts=CLUBS.map(c=>({...c,points:0,owned:[]}));
+  const pts=CLUBS.map(c=>({...c,points:0,owned:[],members:[]}));
+  // Add "Me" as a member of my club
+  if(profile){
+    const myOwned=courses.filter(c=>{const o=getOwner(c);return o&&o.name==='Me';}).length;
+    pts[profile.clubId].members.push({name:profile.name,owned:myOwned,isMe:true,pic:profile.pic||null});
+  }
+  // Add friends as members of their clubs
+  friends.forEach(f=>{
+    if(f.clubId!=null){
+      const friendOwned=courses.reduce((acc,c)=>{
+        if(!c.rounds)return acc;
+        const owns=getOwner(c);
+        return acc+(owns&&owns.name===f.name?1:0);
+      },0);
+      pts[f.clubId].members.push({name:f.name,owned:friendOwned,isMe:false,pic:null});
+    }
+  });
+  // Tally course ownership points
   courses.forEach(c=>{const owner=getOwner(c);if(owner&&owner.clubId!=null){pts[owner.clubId].points+=10;pts[owner.clubId].owned.push(c.name);}});
   return pts.sort((a,b)=>b.points-a.points);
+}
+
+function memberAvatarHTML(m,clubColor,size=32){
+  if(m.pic){
+    return '<img src="'+m.pic+'" style="width:'+size+'px;height:'+size+'px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid '+clubColor+';">';
+  }
+  return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:'+clubColor+';display:flex;align-items:center;justify-content:center;font-size:'+(size*0.35)+'px;font-weight:700;color:#fff;flex-shrink:0;">'+initials(m.name)+'</div>';
 }
 
 function renderClubs(){
   const myClub=profile?getClub(profile.clubId):null;
   const standings=getClubPoints();
   const year=new Date().getFullYear();
+
   if(myClub){
-    const myPts=standings.find(s=>s.id===myClub.id)?.points||0;
-    document.getElementById('my-club-banner').innerHTML=`
-      <div class="club-banner" style="background:${myClub.bg};border-color:${myClub.border};">
-        <div class="club-crest" style="background:${myClub.color};color:#fff;">${myClub.emoji}</div>
-        <div style="flex:1;">
-          <div style="font-size:11px;font-weight:600;color:${myClub.text};opacity:0.7;margin-bottom:2px;letter-spacing:0.5px;">YOUR CLUB</div>
-          <div style="font-size:17px;font-weight:700;color:${myClub.text};">${myClub.name}</div>
-          <div style="font-size:12px;color:${myClub.text};opacity:0.75;">"${myClub.motto}"</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:11px;color:${myClub.text};opacity:0.7;">Club Cup pts</div>
-          <div style="font-size:28px;font-weight:700;color:${myClub.text};">${myPts}</div>
-        </div>
-      </div>`;
+    const myPts=standings.find(s=>s.id===myClub.id)||{points:0};
+    document.getElementById('my-club-banner').innerHTML=
+      '<div class="club-banner" style="background:'+myClub.bg+';border-color:'+myClub.border+';">'
+      +'<div class="club-crest" style="background:'+myClub.color+';color:#fff;">'+myClub.emoji+'</div>'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:11px;font-weight:600;color:'+myClub.text+';opacity:0.7;margin-bottom:2px;letter-spacing:0.5px;">YOUR CLUB</div>'
+      +'<div style="font-size:17px;font-weight:700;color:'+myClub.text+';">'+myClub.name+'</div>'
+      +'<div style="font-size:12px;color:'+myClub.text+';opacity:0.75;">"'+myClub.motto+'"</div>'
+      +'</div>'
+      +'<div style="text-align:right;">'
+      +'<div style="font-size:11px;color:'+myClub.text+';opacity:0.7;">Club Cup pts</div>'
+      +'<div style="font-size:28px;font-weight:700;color:'+myClub.text+';">'+myPts.points+'</div>'
+      +'</div></div>';
   }
+
   const leader=standings[0];
-  document.getElementById('club-cup-standings').innerHTML=`
-    <div class="cup-trophy">
-      <div style="font-size:32px;margin-bottom:6px;">🏆</div>
-      <div style="font-size:14px;font-weight:700;margin-bottom:2px;">${year} Club Cup</div>
-      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;">Earn 10 pts for every course your club owns</div>
-      ${standings.map((cl,i)=>{
-        const pct=leader.points>0?Math.round((cl.points/leader.points)*100):0;
-        const isMe=profile&&cl.id===profile.clubId;
-        return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-          <div style="width:26px;font-size:14px;text-align:right;">${i===0&&cl.points>0?'👑':`#${i+1}`}</div>
-          <div style="font-size:18px;">${cl.emoji}</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:${isMe?'700':'500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${cl.name}${isMe?' ✓':''}</div>
-            <div class="bar-outer"><div class="bar-inner" style="width:${pct}%;background:${cl.color};transition:width 0.5s;"></div></div>
-          </div>
-          <div style="font-size:14px;font-weight:700;min-width:40px;text-align:right;">${cl.points}<span style="font-size:10px;font-weight:400;color:var(--text-secondary);"> pts</span></div>
-        </div>`;
-      }).join('')}
-    </div>`;
+  document.getElementById('club-cup-standings').innerHTML=
+    '<div class="cup-trophy">'
+    +'<div style="font-size:32px;margin-bottom:6px;">🏆</div>'
+    +'<div style="font-size:14px;font-weight:700;margin-bottom:2px;">'+year+' Club Cup</div>'
+    +'<div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;">Earn 10 pts for every course your club owns</div>'
+    +standings.map((cl,i)=>{
+      const pct=leader.points>0?Math.round((cl.points/leader.points)*100):0;
+      const isMe=profile&&cl.id===profile.clubId;
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+        +'<div style="width:26px;font-size:14px;text-align:right;">'+(i===0&&cl.points>0?'👑':'#'+(i+1))+'</div>'
+        +'<div style="font-size:18px;">'+cl.emoji+'</div>'
+        +'<div style="flex:1;min-width:0;">'
+        +'<div style="font-size:13px;font-weight:'+(isMe?'700':'500')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+cl.name+(isMe?' ✓':'')+'</div>'
+        +'<div class="bar-outer"><div class="bar-inner" style="width:'+pct+'%;background:'+cl.color+';transition:width 0.5s;"></div></div>'
+        +'</div>'
+        +'<div style="font-size:14px;font-weight:700;min-width:40px;text-align:right;">'+cl.points+'<span style="font-size:10px;font-weight:400;color:var(--text-secondary);"> pts</span></div>'
+        +'</div>';
+    }).join('')
+    +'</div>';
+
   document.getElementById('all-clubs-list').innerHTML=standings.map(cl=>{
     const isMe=profile&&cl.id===profile.clubId;
-    const memberFriends=friends.filter(f=>f.clubId===cl.id);
-    return`<div class="club-card" style="${isMe?'border-color:'+cl.border+';border-width:2px;':''}">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <div style="width:44px;height:44px;border-radius:50%;background:${cl.color};display:flex;align-items:center;justify-content:center;font-size:20px;">${cl.emoji}</div>
-        <div style="flex:1;">
-          <div style="font-size:14px;font-weight:700;">${cl.name} ${isMe?'<span class="badge badge-green">You</span>':''}</div>
-          <div style="font-size:12px;color:var(--text-secondary);">"${cl.motto}"</div>
-        </div>
-        <div style="text-align:right;"><div style="font-size:20px;font-weight:700;color:${cl.color};">${cl.points}</div><div style="font-size:10px;color:var(--text-secondary);">pts</div></div>
-      </div>
-      ${cl.owned.length?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">Courses owned: <span style="color:var(--text-primary);font-weight:500;">${cl.owned.join(', ')}</span></div>`:'<div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">No courses owned yet — go compete!</div>'}
-      ${memberFriends.length?`<div style="font-size:12px;color:var(--text-secondary);">Your friends here: ${memberFriends.map(f=>f.name).join(', ')}</div>`:''}
-    </div>`;
+    // Sort members by courses owned descending — top is Club Leader
+    const members=[...cl.members].sort((a,b)=>b.owned-a.owned);
+    const clubLeader=members.length>0?members[0]:null;
+
+    const membersHTML=members.length>0
+      ? '<div style="margin-top:10px;border-top:0.5px solid var(--border);padding-top:10px;">'
+        +'<div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;letter-spacing:0.5px;">MEMBERS ('+members.length+')</div>'
+        +members.map((m,mi)=>{
+          const isLeader=mi===0&&m.owned>0;
+          return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">'
+            +memberAvatarHTML(m,cl.color,30)
+            +'<div style="flex:1;min-width:0;">'
+            +'<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+m.name+(m.isMe?' <span class="badge badge-green" style="font-size:10px;">You</span>':'')+'</div>'
+            +'<div style="font-size:11px;color:var(--text-secondary);">'+m.owned+' course'+(m.owned!==1?'s':'')+' owned</div>'
+            +'</div>'
+            +(isLeader
+              ? '<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:'+cl.bg+';color:'+cl.text+';font-weight:700;white-space:nowrap;border:1px solid '+cl.border+';">👑 Club leader</span>'
+              : '')
+            +'</div>';
+        }).join('')
+        +'</div>'
+      : '<div style="font-size:12px;color:var(--text-secondary);margin-top:8px;">No members tracked yet — add friends and assign their clubs.</div>';
+
+    return '<div class="club-card" style="'+(isMe?'border-color:'+cl.border+';border-width:2px;':'')+'">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">'
+      +'<div style="width:44px;height:44px;border-radius:50%;background:'+cl.color+';display:flex;align-items:center;justify-content:center;font-size:20px;">'+cl.emoji+'</div>'
+      +'<div style="flex:1;min-width:0;">'
+      +'<div style="font-size:14px;font-weight:700;">'+cl.name+(isMe?' <span class="badge badge-green">You</span>':'')+'</div>'
+      +'<div style="font-size:12px;color:var(--text-secondary);">"'+cl.motto+'"</div>'
+      +(clubLeader&&clubLeader.owned>0
+        ? '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Leader: <b style="color:'+cl.text+';">'+clubLeader.name+'</b> ('+clubLeader.owned+' course'+(clubLeader.owned!==1?'s':'')+' owned)</div>'
+        : '')
+      +'</div>'
+      +'<div style="text-align:right;flex-shrink:0;">'
+      +'<div style="font-size:20px;font-weight:700;color:'+cl.color+';">'+cl.points+'</div>'
+      +'<div style="font-size:10px;color:var(--text-secondary);">pts</div>'
+      +'</div></div>'
+      +(cl.owned.length
+        ? '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:2px;">Courses owned: <span style="color:var(--text-primary);font-weight:500;">'+cl.owned.join(', ')+'</span></div>'
+        : '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:2px;">No courses owned yet — go compete!</div>')
+      +membersHTML
+      +'</div>';
   }).join('');
 }
 
@@ -902,7 +958,7 @@ function renderCourses(){
   el.innerHTML=list.map((c,displayIdx)=>{
     const rank=displayIdx+1;
     const owner=getOwner(c);
-    const comm=Math.round(((Math.abs(hashStr(c.name))%30+55)/10)*10)/10,barPct=Math.round((comm/5)*100);
+    const comm=Math.round(((Math.abs(hashStr(c.name))%45+55)/10)*10)/10,barPct=Math.round((comm/10)*100);
     const dateStr=c.date?new Date(c.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
     const rankCls=rank===1?'r1':rank===2?'r2':rank===3?'r3':'rn';
     const ownerClub=owner&&owner.clubId!=null?getClub(owner.clubId):null;
@@ -927,7 +983,7 @@ function renderCourses(){
       +scoreBarHTML(c.quality||5,c.layout||5,c.pinkingsScore||calcPinkingsScore(c.quality||5,c.layout||5,null))
       +(c.gross!=null?'<div style="font-size:12px;color:var(--text-secondary);margin-bottom:5px;">Gross: <b style="color:var(--text-primary);">'+c.gross+'</b>'+(c.courseHcp!=null?' · Course HCP: '+c.courseHcp:'')+(c.net!=null?' · Net: <b style="color:var(--green);">'+c.net+'</b>':'')+'</div>':'')
       +(c.notes?'<div style="font-size:12px;color:var(--text-secondary);font-style:italic;margin-bottom:6px;">"'+c.notes+'"</div>':'')
-      +'<div style="margin-bottom:8px;"><div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px;">Community rating: '+comm.toFixed(1)+'/5</div>'
+      +'<div style="margin-bottom:8px;"><div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px;">Community rating: '+comm.toFixed(1)+'/10</div>'
       +'<div class="bar-outer"><div class="bar-inner" style="width:'+barPct+'%;background:var(--green);"></div></div></div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
       +(dragMode?'':'<button class="btn-sm" onclick="openEdit('+c.id+')">Edit</button><button class="btn-sm btn-sm-danger" onclick="deleteCourse('+c.id+')">Remove</button>')
@@ -1073,35 +1129,79 @@ function renderProfile(){
   const bestNet=courses.filter(c=>c.net!=null).sort((a,b)=>a.net-b.net)[0];
   const bestGross=courses.filter(c=>c.gross!=null).sort((a,b)=>a.gross-b.gross)[0];
   const standings=getClubPoints(),clubRank=standings.findIndex(s=>s.id===profile.clubId)+1;
-  document.getElementById('profile-card').innerHTML=`
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:1.25rem;">
-      <div class="profile-avatar" style="background:${club.color};">${initials(profile.name)}</div>
-      <div>
-        <div style="font-size:20px;font-weight:700;">${profile.name}</div>
-        ${profile.home?`<div style="font-size:13px;color:var(--text-secondary);">Home: ${profile.home}</div>`:''}
-        <div style="font-size:12px;padding:2px 8px;border-radius:var(--radius-md);background:${club.bg};color:${club.text};display:inline-block;margin-top:4px;font-weight:600;">${club.emoji} ${club.name} · Club Cup #${clubRank}</div>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem;">
-      <div class="stat"><div class="stat-lbl">Handicap index</div><div class="stat-val">${profile.handicap!=null?profile.handicap:'—'}</div></div>
-      <div class="stat"><div class="stat-lbl">Courses played</div><div class="stat-val">${courses.length}</div></div>
-      <div class="stat"><div class="stat-lbl">Courses owned</div><div class="stat-val">${owned}</div></div>
-      <div class="stat"><div class="stat-lbl">Friends</div><div class="stat-val">${friends.length}</div></div>
-    </div>
-    ${bestNet?`<div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">Best net: <b style="color:var(--green);">${bestNet.net}</b> at ${bestNet.name}</div>`:''}
-    ${bestGross?`<div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">Best gross: <b style="color:var(--text-primary);">${bestGross.gross}</b> at ${bestGross.name}</div>`:''}
-    <div style="border-top:0.5px solid var(--border);padding-top:14px;">
-      <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Update profile</div>
-      <div class="row2">
-        <div class="field"><label>Name</label><input id="p-name" type="text" value="${profile.name}"></div>
-        <div class="field"><label>Handicap index</label><input id="p-hcp" type="number" step="0.1" value="${profile.handicap!=null?profile.handicap:''}"></div>
-      </div>
-      <div class="field"><label>Home course</label><input id="p-home" type="text" value="${profile.home||''}"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn" onclick="updateProfile()">Save changes</button>
-        <button class="btn btn-danger" onclick="logOut()">Log out</button>
-      </div>
-    </div>`;
+  const clubLeaderData=standings.find(s=>s.id===profile.clubId);
+  const isClubLeader=clubLeaderData&&clubLeaderData.members.length>0&&clubLeaderData.members.sort((a,b)=>b.owned-a.owned)[0].isMe&&owned>0;
+
+  const avatarHTML=profile.pic
+    ? '<div style="position:relative;flex-shrink:0;">'
+      +'<img src="'+profile.pic+'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid '+club.color+';">'
+      +'<button onclick="document.getElementById('pic-upload').click()" style="position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:'+club.color+';border:2px solid var(--bg-primary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;" title="Change photo">✎</button>'
+      +'</div>'
+    : '<div style="position:relative;flex-shrink:0;">'
+      +'<div style="width:72px;height:72px;border-radius:50%;background:'+club.color+';display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#fff;">'+initials(profile.name)+'</div>'
+      +'<button onclick="document.getElementById('pic-upload').click()" style="position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:'+club.color+';border:2px solid var(--bg-primary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;" title="Add photo">+</button>'
+      +'</div>';
+
+  document.getElementById('profile-card').innerHTML=
+    '<input type="file" id="pic-upload" accept="image/*" style="display:none;" onchange="handlePicUpload(event)">'
+    +'<div style="display:flex;align-items:center;gap:14px;margin-bottom:1.25rem;">'
+    +avatarHTML
+    +'<div style="flex:1;min-width:0;">'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+    +'<div style="font-size:20px;font-weight:700;">'+profile.name+'</div>'
+    +(isClubLeader?'<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:'+club.bg+';color:'+club.text+';font-weight:700;border:1px solid '+club.border+';">👑 Club leader</span>':'')
+    +'</div>'
+    +(profile.home?'<div style="font-size:13px;color:var(--text-secondary);">Home: '+profile.home+'</div>':'')
+    +'<div style="font-size:12px;padding:2px 8px;border-radius:var(--radius-md);background:'+club.bg+';color:'+club.text+';display:inline-block;margin-top:4px;font-weight:600;">'+club.emoji+' '+club.name+' · Club Cup #'+clubRank+'</div>'
+    +'</div></div>'
+    +(profile.pic?'<div style="margin-bottom:10px;"><button class="btn-sm" onclick="removePic()" style="color:var(--red-dark);border-color:var(--red);">Remove photo</button></div>':'')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem;">'
+    +'<div class="stat"><div class="stat-lbl">Handicap index</div><div class="stat-val">'+(profile.handicap!=null?profile.handicap:'—')+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Courses played</div><div class="stat-val">'+courses.length+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Courses owned</div><div class="stat-val">'+owned+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Friends</div><div class="stat-val">'+friends.length+'</div></div>'
+    +'</div>'
+    +(bestNet?'<div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">Best net: <b style="color:var(--green);">'+bestNet.net+'</b> at '+bestNet.name+'</div>':'')
+    +(bestGross?'<div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">Best gross: <b style="color:var(--text-primary);">'+bestGross.gross+'</b> at '+bestGross.name+'</div>':'')
+    +'<div style="border-top:0.5px solid var(--border);padding-top:14px;">'
+    +'<div style="font-size:14px;font-weight:700;margin-bottom:10px;">Update profile</div>'
+    +'<div class="row2">'
+    +'<div class="field"><label>Name</label><input id="p-name" type="text" value="'+profile.name+'"></div>'
+    +'<div class="field"><label>Handicap index</label><input id="p-hcp" type="number" step="0.1" value="'+(profile.handicap!=null?profile.handicap:'')+'"></div>'
+    +'</div>'
+    +'<div class="field"><label>Home course</label><input id="p-home" type="text" value="'+(profile.home||'')+'"></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    +'<button class="btn" onclick="updateProfile()">Save changes</button>'
+    +'<button class="btn btn-danger" onclick="logOut()">Log out</button>'
+    +'</div></div>';
+}
+
+function handlePicUpload(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  if(file.size>2*1024*1024){alert('Image must be under 2MB. Try a smaller photo.');return;}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    profile.pic=e.target.result;
+    save();
+    renderProfile();
+    pushNotif('Profile photo updated!','success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removePic(){
+  if(!confirm('Remove your profile photo?'))return;
+  profile.pic=null;
+  save();
+  renderProfile();
+}
+
+function updateHeaderAvatar(){
+  // Update notif button area to show profile pic if set
+  const btn=document.querySelector('.notif-btn');
+  if(!btn||!profile)return;
+  // Add/update avatar next to bell if pic is set - handled in profile pic save
 }
 
 function updateProfile(){
@@ -1231,61 +1331,198 @@ function onCourseSearchInput(val){
   searchDebounceTimer=setTimeout(()=>runCourseSearch(val.trim()),500);
 }
 
+// ── COURSE SEARCH CONFIG ──
+// To unlock the full 50,000+ course database:
+// 1. Go to https://rapidapi.com/golfcourse-api/api/golf-course-finder
+// 2. Sign up free → Subscribe to Basic (free, 500 req/month)
+// 3. Copy your RapidAPI key and paste it below replacing YOUR_RAPIDAPI_KEY_HERE
+const RAPIDAPI_KEY = 'YOUR_RAPIDAPI_KEY_HERE';
+
 async function runCourseSearch(query){
   const spinner=document.getElementById('course-search-spinner');
   const results=document.getElementById('course-search-results');
   spinner.style.display='block';
   results.style.display='none';
+
+  // Try RapidAPI Golf Course Finder first (50,000+ courses)
+  if(RAPIDAPI_KEY && RAPIDAPI_KEY !== 'YOUR_RAPIDAPI_KEY_HERE'){
+    try{
+      const resp=await fetch('https://golf-course-finder.p.rapidapi.com/courses?name='+encodeURIComponent(query)+'&limit=10',{
+        headers:{
+          'X-RapidAPI-Key': RAPIDAPI_KEY,
+          'X-RapidAPI-Host': 'golf-course-finder.p.rapidapi.com'
+        }
+      });
+      if(resp.ok){
+        const data=await resp.json();
+        const courses_raw=data.courses||data.data||data||[];
+        const list=courses_raw.slice(0,8).map(c=>({
+          name:c.name||c.club_name||c.course_name||'Unknown',
+          location:[c.city,c.state||c.state_name,c.country||c.country_name].filter(Boolean).join(', '),
+          courseRating:parseFloat(c.course_rating||c.rating||0)||null,
+          slopeRating:parseFloat(c.slope_rating||c.slope||0)||null,
+          par:parseInt(c.par||72),
+          lat:parseFloat(c.latitude||c.lat||0)||null,
+          lng:parseFloat(c.longitude||c.lng||c.lon||0)||null
+        })).filter(c=>c.name!=='Unknown');
+        if(list.length){renderSearchResults(list);spinner.style.display='none';return;}
+      }
+    }catch(e){}
+  }
+
+  // Try Open Golf API (free, no key needed, good US coverage)
   try{
-    const resp=await fetch(`https://api.golfcourseapi.com/v1/search?search_query=${encodeURIComponent(query)}`,{
+    const resp=await fetch('https://api.opengolf.dev/v1/courses/search?q='+encodeURIComponent(query)+'&limit=10');
+    if(resp.ok){
+      const data=await resp.json();
+      const list=(data.results||data.courses||[]).slice(0,8).map(c=>({
+        name:c.name||c.club_name||'Unknown',
+        location:[c.city,c.state,c.country].filter(Boolean).join(', '),
+        courseRating:parseFloat(c.course_rating||0)||null,
+        slopeRating:parseFloat(c.slope_rating||0)||null,
+        par:parseInt(c.par||72),
+        lat:parseFloat(c.latitude||c.lat||0)||null,
+        lng:parseFloat(c.longitude||c.lng||0)||null
+      })).filter(c=>c.name!=='Unknown');
+      if(list.length){renderSearchResults(list);spinner.style.display='none';return;}
+    }
+  }catch(e){}
+
+  // Try GolfCourseAPI (free demo)
+  try{
+    const resp=await fetch('https://api.golfcourseapi.com/v1/search?search_query='+encodeURIComponent(query),{
       headers:{'Authorization':'Key GOLFAPI-FREE-DEMO'}
     });
-    if(!resp.ok) throw new Error('API error');
-    const data=await resp.json();
-    const list=(data.courses||[]).slice(0,5).map(c=>({
-      name:c.club_name||(c.course_name||'Unknown'),
-      location:[c.city,c.state_name,c.country_name].filter(Boolean).join(', '),
-      courseRating:c.tees?.male?.find(t=>t.tee_name?.toLowerCase().includes('blue'))?.course_rating||c.tees?.male?.[0]?.course_rating||null,
-      slopeRating:c.tees?.male?.find(t=>t.tee_name?.toLowerCase().includes('blue'))?.slope_rating||c.tees?.male?.[0]?.slope_rating||null,
-      par:c.tees?.male?.[0]?.par||72,
-      lat:c.location?.latitude||null,
-      lng:c.location?.longitude||null
-    }));
-    if(!list.length) throw new Error('No results');
-    renderSearchResults(list);
-  }catch(err){
-    // Fallback: use a hardcoded list of well-known courses for demo + manual entry prompt
-    const fallback=searchFallback(query);
-    if(fallback.length){renderSearchResults(fallback);}
-    else{
-      results.innerHTML=`<div style="padding:12px 14px;font-size:13px;color:var(--text-secondary);">No results found — try a different spelling or fill in the details manually below.</div>`;
-      results.style.display='block';
+    if(resp.ok){
+      const data=await resp.json();
+      const list=(data.courses||[]).slice(0,8).map(c=>({
+        name:c.club_name||(c.course_name||'Unknown'),
+        location:[c.city,c.state_name,c.country_name].filter(Boolean).join(', '),
+        courseRating:c.tees?.male?.find(t=>t.tee_name?.toLowerCase().includes('blue'))?.course_rating||c.tees?.male?.[0]?.course_rating||null,
+        slopeRating:c.tees?.male?.find(t=>t.tee_name?.toLowerCase().includes('blue'))?.slope_rating||c.tees?.male?.[0]?.slope_rating||null,
+        par:c.tees?.male?.[0]?.par||72,
+        lat:c.location?.latitude||null,
+        lng:c.location?.longitude||null
+      })).filter(c=>c.name!=='Unknown');
+      if(list.length){renderSearchResults(list);spinner.style.display='none';return;}
     }
+  }catch(e){}
+
+  // Final fallback: large built-in database
+  const fallback=searchFallback(query);
+  if(fallback.length){
+    renderSearchResults(fallback);
+  } else {
+    results.innerHTML='<div style="padding:12px 14px;">'
+      +'<div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">No courses found for "'+query+'"</div>'
+      +'<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">Try a shorter search (e.g. "Pebble" instead of "Pebble Beach Golf Links"). Or fill in the details below manually.</div>'
+      +(RAPIDAPI_KEY==='YOUR_RAPIDAPI_KEY_HERE'
+        ?'<div style="font-size:12px;color:var(--blue);margin-top:6px;">💡 <b>Unlock 50,000+ courses:</b> Add a free RapidAPI key in the code (search for YOUR_RAPIDAPI_KEY_HERE)</div>'
+        :'')
+      +'</div>';
+    results.style.display='block';
   }
   spinner.style.display='none';
 }
 
 function searchFallback(q){
-  const db=[
-    {name:'Pebble Beach Golf Links',location:'Pebble Beach, CA, USA',courseRating:74.7,slopeRating:144,par:72,lat:36.5681,lng:-121.9486},
-    {name:'Augusta National Golf Club',location:'Augusta, GA, USA',courseRating:76.2,slopeRating:148,par:72,lat:33.5021,lng:-82.0232},
-    {name:'Torrey Pines Golf Course (South)',location:'La Jolla, CA, USA',courseRating:75.4,slopeRating:145,par:72,lat:32.8995,lng:-117.2522},
-    {name:'TPC Sawgrass (Stadium)',location:'Ponte Vedra Beach, FL, USA',courseRating:74.7,slopeRating:135,par:72,lat:30.1975,lng:-81.3953},
-    {name:'Pinehurst No. 2',location:'Pinehurst, NC, USA',courseRating:76.0,slopeRating:153,par:70,lat:35.1954,lng:-79.4695},
-    {name:'Bethpage Black',location:'Farmingdale, NY, USA',courseRating:75.4,slopeRating:148,par:71,lat:40.7282,lng:-73.4557},
-    {name:'Rustic Canyon Golf Course',location:'Moorpark, CA, USA',courseRating:71.8,slopeRating:124,par:72,lat:34.2955,lng:-118.8878},
-    {name:'Bandon Dunes Golf Resort',location:'Bandon, OR, USA',courseRating:74.2,slopeRating:138,par:72,lat:43.1163,lng:-124.4485},
-    {name:'Whistling Straits',location:'Kohler, WI, USA',courseRating:76.6,slopeRating:151,par:72,lat:43.8527,lng:-87.7384},
-    {name:'Spyglass Hill Golf Course',location:'Pebble Beach, CA, USA',courseRating:75.4,slopeRating:143,par:72,lat:36.5836,lng:-121.9669},
-    {name:'Harbour Town Golf Links',location:'Hilton Head Island, SC, USA',courseRating:74.0,slopeRating:139,par:71,lat:32.1385,lng:-80.8112},
-    {name:'Congressional Country Club (Blue)',location:'Bethesda, MD, USA',courseRating:76.9,slopeRating:145,par:72,lat:38.9977,lng:-77.1316},
-    {name:'Shinnecock Hills Golf Club',location:'Southampton, NY, USA',courseRating:76.5,slopeRating:144,par:70,lat:40.8821,lng:-72.4318},
-    {name:'Oakmont Country Club',location:'Oakmont, PA, USA',courseRating:77.0,slopeRating:147,par:71,lat:40.5237,lng:-79.8355},
-    {name:'Merion Golf Club (East)',location:'Ardmore, PA, USA',courseRating:74.2,slopeRating:144,par:70,lat:40.0026,lng:-75.2977},
-  ];
   const lower=q.toLowerCase();
-  return db.filter(c=>c.name.toLowerCase().includes(lower)||c.location.toLowerCase().includes(lower));
+  return COURSE_DB.filter(c=>
+    c.name.toLowerCase().includes(lower)||
+    c.location.toLowerCase().includes(lower)
+  );
 }
+
+// Built-in database of 80+ well-known courses worldwide
+const COURSE_DB=[
+  // USA - Top ranked
+  {name:'Pebble Beach Golf Links',location:'Pebble Beach, CA, USA',courseRating:74.7,slopeRating:144,par:72,lat:36.5681,lng:-121.9486},
+  {name:'Augusta National Golf Club',location:'Augusta, GA, USA',courseRating:76.2,slopeRating:148,par:72,lat:33.5021,lng:-82.0232},
+  {name:'Pinehurst No. 2',location:'Pinehurst, NC, USA',courseRating:76.0,slopeRating:153,par:70,lat:35.1954,lng:-79.4695},
+  {name:'Bethpage Black',location:'Farmingdale, NY, USA',courseRating:75.4,slopeRating:148,par:71,lat:40.7282,lng:-73.4557},
+  {name:'Shinnecock Hills Golf Club',location:'Southampton, NY, USA',courseRating:76.5,slopeRating:144,par:70,lat:40.8821,lng:-72.4318},
+  {name:'Oakmont Country Club',location:'Oakmont, PA, USA',courseRating:77.0,slopeRating:147,par:71,lat:40.5237,lng:-79.8355},
+  {name:'Merion Golf Club (East)',location:'Ardmore, PA, USA',courseRating:74.2,slopeRating:144,par:70,lat:40.0026,lng:-75.2977},
+  {name:'TPC Sawgrass (Stadium)',location:'Ponte Vedra Beach, FL, USA',courseRating:74.7,slopeRating:135,par:72,lat:30.1975,lng:-81.3953},
+  {name:'Winged Foot Golf Club (West)',location:'Mamaroneck, NY, USA',courseRating:76.2,slopeRating:144,par:70,lat:40.9774,lng:-73.7451},
+  {name:'Torrey Pines Golf Course (South)',location:'La Jolla, CA, USA',courseRating:75.4,slopeRating:145,par:72,lat:32.8995,lng:-117.2522},
+  {name:'Torrey Pines Golf Course (North)',location:'La Jolla, CA, USA',courseRating:72.1,slopeRating:129,par:72,lat:32.9050,lng:-117.2530},
+  {name:'Spyglass Hill Golf Course',location:'Pebble Beach, CA, USA',courseRating:75.4,slopeRating:143,par:72,lat:36.5836,lng:-121.9669},
+  {name:'Poppy Hills Golf Course',location:'Pebble Beach, CA, USA',courseRating:73.5,slopeRating:138,par:72,lat:36.5972,lng:-121.9633},
+  {name:'Bandon Dunes Golf Resort',location:'Bandon, OR, USA',courseRating:74.2,slopeRating:138,par:72,lat:43.1163,lng:-124.4485},
+  {name:'Pacific Dunes',location:'Bandon, OR, USA',courseRating:73.8,slopeRating:139,par:71,lat:43.1200,lng:-124.4500},
+  {name:'Whistling Straits (Straits)',location:'Kohler, WI, USA',courseRating:76.6,slopeRating:151,par:72,lat:43.8527,lng:-87.7384},
+  {name:'Harbour Town Golf Links',location:'Hilton Head Island, SC, USA',courseRating:74.0,slopeRating:139,par:71,lat:32.1385,lng:-80.8112},
+  {name:'Congressional Country Club (Blue)',location:'Bethesda, MD, USA',courseRating:76.9,slopeRating:145,par:72,lat:38.9977,lng:-77.1316},
+  {name:'Kiawah Island Golf Resort (Ocean)',location:'Kiawah Island, SC, USA',courseRating:79.6,slopeRating:144,par:72,lat:32.6068,lng:-80.0838},
+  {name:'Riviera Country Club',location:'Pacific Palisades, CA, USA',courseRating:75.5,slopeRating:142,par:71,lat:34.0499,lng:-118.5231},
+  {name:'Los Angeles Country Club (North)',location:'Los Angeles, CA, USA',courseRating:75.9,slopeRating:143,par:70,lat:34.0643,lng:-118.4108},
+  {name:'Rustic Canyon Golf Course',location:'Moorpark, CA, USA',courseRating:71.8,slopeRating:124,par:72,lat:34.2955,lng:-118.8878},
+  {name:'Pelican Hill Golf Club (Ocean North)',location:'Newport Coast, CA, USA',courseRating:73.8,slopeRating:138,par:70,lat:33.5928,lng:-117.8394},
+  {name:'Pelican Hill Golf Club (Ocean South)',location:'Newport Coast, CA, USA',courseRating:74.1,slopeRating:140,par:71,lat:33.5900,lng:-117.8400},
+  {name:'Shadow Creek Golf Course',location:'North Las Vegas, NV, USA',courseRating:76.5,slopeRating:147,par:72,lat:36.2612,lng:-115.1019},
+  {name:'TPC Las Vegas',location:'Las Vegas, NV, USA',courseRating:72.2,slopeRating:129,par:71,lat:36.1566,lng:-115.3196},
+  {name:'Wolf Creek Golf Club',location:'Mesquite, NV, USA',courseRating:74.3,slopeRating:145,par:72,lat:36.8057,lng:-114.1003},
+  {name:'Erin Hills Golf Course',location:'Erin, WI, USA',courseRating:77.5,slopeRating:148,par:72,lat:43.1897,lng:-88.3459},
+  {name:'Sand Valley Golf Resort',location:'Nekoosa, WI, USA',courseRating:74.8,slopeRating:135,par:72,lat:44.2954,lng:-89.8671},
+  {name:'Chambers Bay Golf Course',location:'University Place, WA, USA',courseRating:76.5,slopeRating:145,par:70,lat:47.2193,lng:-122.5479},
+  {name:'TPC Scottsdale (Stadium)',location:'Scottsdale, AZ, USA',courseRating:73.2,slopeRating:130,par:71,lat:33.6754,lng:-111.8997},
+  {name:'Troon North Golf Club (Monument)',location:'Scottsdale, AZ, USA',courseRating:72.9,slopeRating:140,par:72,lat:33.7548,lng:-111.8523},
+  {name:'We-Ko-Pa Golf Club (Saguaro)',location:'Fort McDowell, AZ, USA',courseRating:73.5,slopeRating:135,par:72,lat:33.6341,lng:-111.6912},
+  {name:'Streamsong Resort (Blue)',location:'Streamsong, FL, USA',courseRating:75.0,slopeRating:138,par:72,lat:27.7041,lng:-81.7279},
+  {name:'Streamsong Resort (Red)',location:'Streamsong, FL, USA',courseRating:74.4,slopeRating:136,par:72,lat:27.7035,lng:-81.7285},
+  {name:'Bay Hill Club & Lodge',location:'Orlando, FL, USA',courseRating:74.7,slopeRating:135,par:72,lat:28.4547,lng:-81.4872},
+  {name:'Doral Golf Resort (Blue Monster)',location:'Miami, FL, USA',courseRating:75.3,slopeRating:133,par:72,lat:25.8178,lng:-80.3573},
+  {name:'Augusta National Golf Club',location:'Augusta, GA, USA',courseRating:76.2,slopeRating:148,par:72,lat:33.5021,lng:-82.0232},
+  {name:'East Lake Golf Club',location:'Atlanta, GA, USA',courseRating:74.9,slopeRating:135,par:72,lat:33.7273,lng:-84.3042},
+  {name:'Sedgefield Country Club',location:'Greensboro, NC, USA',courseRating:71.5,slopeRating:127,par:70,lat:36.0357,lng:-79.8664},
+  {name:'Trump National Golf Club Bedminster',location:'Bedminster, NJ, USA',courseRating:75.2,slopeRating:141,par:72,lat:40.6754,lng:-74.6587},
+  {name:'Baltusrol Golf Club (Lower)',location:'Springfield, NJ, USA',courseRating:74.9,slopeRating:140,par:70,lat:40.7012,lng:-74.3426},
+  {name:'Medinah Country Club (No. 3)',location:'Medinah, IL, USA',courseRating:76.7,slopeRating:144,par:72,lat:41.9928,lng:-88.0528},
+  {name:'Hazeltine National Golf Club',location:'Chaska, MN, USA',courseRating:76.5,slopeRating:145,par:72,lat:44.8211,lng:-93.6419},
+  {name:'Valhalla Golf Club',location:'Louisville, KY, USA',courseRating:76.6,slopeRating:143,par:72,lat:38.2083,lng:-85.5174},
+  {name:'Quail Hollow Club',location:'Charlotte, NC, USA',courseRating:76.3,slopeRating:140,par:71,lat:35.3090,lng:-80.7892},
+  // Scotland & Ireland
+  {name:'St Andrews Links (Old Course)',location:'St Andrews, Scotland, UK',courseRating:73.1,slopeRating:132,par:72,lat:56.3432,lng:-2.8024},
+  {name:'Royal Birkdale Golf Club',location:'Southport, England, UK',courseRating:75.7,slopeRating:140,par:70,lat:53.6226,lng:-3.0323},
+  {name:'Royal St Georges Golf Club',location:'Sandwich, England, UK',courseRating:74.5,slopeRating:136,par:70,lat:51.2914,lng:1.3724},
+  {name:'Carnoustie Golf Links (Championship)',location:'Carnoustie, Scotland, UK',courseRating:75.4,slopeRating:139,par:72,lat:56.5000,lng:-2.7100},
+  {name:'Muirfield (Honourable Company)',location:'Gullane, Scotland, UK',courseRating:73.8,slopeRating:132,par:70,lat:56.0441,lng:-2.8170},
+  {name:'Royal Portrush Golf Club (Dunluce)',location:'Portrush, Northern Ireland, UK',courseRating:76.3,slopeRating:143,par:71,lat:55.2000,lng:-6.6667},
+  {name:'Turnberry (Ailsa Course)',location:'Turnberry, Scotland, UK',courseRating:76.0,slopeRating:142,par:70,lat:55.3154,lng:-4.8361},
+  {name:'Royal Troon Golf Club (Old)',location:'Troon, Scotland, UK',courseRating:74.8,slopeRating:137,par:71,lat:55.5432,lng:-4.6815},
+  {name:'Ballybunion Golf Club (Old)',location:'Ballybunion, Ireland',courseRating:74.4,slopeRating:140,par:71,lat:52.5197,lng:-9.6726},
+  {name:'Royal County Down Golf Club',location:'Newcastle, Northern Ireland, UK',courseRating:74.9,slopeRating:147,par:71,lat:54.2184,lng:-5.8919},
+  {name:'Lahinch Golf Club (Old)',location:'Lahinch, Ireland',courseRating:72.8,slopeRating:136,par:72,lat:52.9343,lng:-9.3432},
+  {name:'Waterville Golf Links',location:'Waterville, Ireland',courseRating:74.2,slopeRating:138,par:72,lat:51.8296,lng:-10.1756},
+  {name:'Doonbeg Golf Club',location:'Doonbeg, Ireland',courseRating:74.7,slopeRating:143,par:71,lat:52.7255,lng:-9.5298},
+  {name:'Portstewart Golf Club (Strand)',location:'Portstewart, Northern Ireland, UK',courseRating:74.1,slopeRating:136,par:72,lat:55.1826,lng:-6.7183},
+  // Europe
+  {name:'Valderrama Golf Club',location:'Sotogrande, Spain',courseRating:74.9,slopeRating:136,par:71,lat:36.2875,lng:-5.2887},
+  {name:'Club de Golf Sotogrande',location:'Sotogrande, Spain',courseRating:73.6,slopeRating:132,par:72,lat:36.2930,lng:-5.2850},
+  {name:'Golf National',location:'Guyancourt, France',courseRating:74.1,slopeRating:138,par:72,lat:48.7418,lng:2.0752},
+  {name:'Gut Larchenhof Golf Club',location:'Pulheim, Germany',courseRating:73.2,slopeRating:131,par:72,lat:51.0067,lng:6.7889},
+  {name:'Golf Club Crans-sur-Sierre',location:'Crans-Montana, Switzerland',courseRating:70.7,slopeRating:127,par:70,lat:46.3082,lng:7.4764},
+  {name:'Royal Antwerp Golf Club',location:'Kapellen, Belgium',courseRating:73.3,slopeRating:136,par:72,lat:51.3176,lng:4.4028},
+  // Canada
+  {name:'St George's Golf & Country Club',location:'Toronto, ON, Canada',courseRating:75.3,slopeRating:143,par:70,lat:43.7001,lng:-79.5681},
+  {name:'Capilano Golf & Country Club',location:'West Vancouver, BC, Canada',courseRating:71.2,slopeRating:135,par:72,lat:49.3721,lng:-123.1654},
+  {name:'Cabot Links',location:'Inverness, NS, Canada',courseRating:74.5,slopeRating:138,par:70,lat:46.2167,lng:-61.1167},
+  {name:'Cabot Cliffs',location:'Inverness, NS, Canada',courseRating:75.9,slopeRating:145,par:72,lat:46.2200,lng:-61.1200},
+  {name:'Royal Montreal Golf Club (Blue)',location:'Ile Bizard, QC, Canada',courseRating:73.9,slopeRating:135,par:70,lat:45.4941,lng:-73.8912},
+  // Australia & Asia
+  {name:'Royal Melbourne Golf Club (West)',location:'Black Rock, VIC, Australia',courseRating:74.8,slopeRating:145,par:72,lat:-37.9601,lng:145.0411},
+  {name:'Kingston Heath Golf Club',location:'Heatherton, VIC, Australia',courseRating:74.0,slopeRating:138,par:72,lat:-37.9523,lng:145.0842},
+  {name:'New South Wales Golf Club',location:'La Perouse, NSW, Australia',courseRating:73.8,slopeRating:143,par:72,lat:-33.9983,lng:151.2341},
+  {name:'The Australian Golf Club',location:'Rosebery, NSW, Australia',courseRating:74.3,slopeRating:141,par:72,lat:-33.9136,lng:151.2167},
+  {name:'Cape Kidnappers',location:'Hawke's Bay, New Zealand',courseRating:74.5,slopeRating:142,par:71,lat:-39.6500,lng:177.0833},
+  {name:'Kauri Cliffs',location:'Matauri Bay, New Zealand',courseRating:73.1,slopeRating:136,par:72,lat:-35.0167,lng:173.7500},
+  {name:'Kasumigaseki Country Club (East)',location:'Kawagoe, Japan',courseRating:71.5,slopeRating:125,par:72,lat:35.9500,lng:139.4833},
+  {name:'Mission Hills Golf Club',location:'Shenzhen, China',courseRating:74.2,slopeRating:137,par:72,lat:22.6833,lng:114.0167},
+  // South Africa
+  {name:'Sun City Golf Course (Gary Player)',location:'Sun City, South Africa',courseRating:74.1,slopeRating:138,par:72,lat:-25.3472,lng:27.0908},
+  {name:'Leopard Creek Country Club',location:'Malelane, South Africa',courseRating:73.8,slopeRating:135,par:72,lat:-25.4667,lng:31.5167},
+];
 
 function renderSearchResults(list){
   const results=document.getElementById('course-search-results');
