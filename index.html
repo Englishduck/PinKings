@@ -1341,7 +1341,8 @@ function onCourseSearchInput(val){
 // 1. Go to https://rapidapi.com/golfcourse-api/api/golf-course-finder
 // 2. Sign up free → Subscribe to Basic (free, 500 req/month)
 // 3. Copy your RapidAPI key and paste it below replacing YOUR_RAPIDAPI_KEY_HERE
-const RAPIDAPI_KEY = '175386b0a4msh710653b207a20cep1440c2jsncb969e3501ce';
+const RAPIDAPI_KEY = 'YOUR_RAPIDAPI_KEY_HERE'; // no longer used
+const GOLFAPI_KEY = 'PASTE_YOUR_GOLFCOURSEAPI_KEY_HERE';
 
 async function runCourseSearch(query){
   const spinner=document.getElementById('course-search-spinner');
@@ -1349,32 +1350,51 @@ async function runCourseSearch(query){
   spinner.style.display='block';
   results.style.display='none';
 
-  // Try RapidAPI Golf Course Finder first (50,000+ courses)
-  if(RAPIDAPI_KEY && RAPIDAPI_KEY !== 'YOUR_RAPIDAPI_KEY_HERE'){
+  // GolfCourseAPI — 30,000 courses, free with email signup at golfcourseapi.com
+  if(GOLFAPI_KEY && GOLFAPI_KEY !== 'PASTE_YOUR_GOLFCOURSEAPI_KEY_HERE'){
     try{
-      const resp=await fetch('https://golf-course-finder.p.rapidapi.com/courses?name='+encodeURIComponent(query)+'&limit=10',{
-        headers:{
-          'X-RapidAPI-Key': RAPIDAPI_KEY,
-          'X-RapidAPI-Host': 'golf-course-finder.p.rapidapi.com'
-        }
+      const resp=await fetch('https://api.golfcourseapi.com/v1/search?search_query='+encodeURIComponent(query),{
+        headers:{'Authorization':'Key '+GOLFAPI_KEY}
       });
       if(resp.ok){
         const data=await resp.json();
-        const courses_raw=data.courses||data.data||data||[];
-        const list=courses_raw.slice(0,8).map(c=>({
-          name:c.name||c.club_name||c.course_name||'Unknown',
-          location:[c.city,c.state||c.state_name,c.country||c.country_name].filter(Boolean).join(', '),
-          courseRating:parseFloat(c.course_rating||c.rating||0)||null,
-          slopeRating:parseFloat(c.slope_rating||c.slope||0)||null,
-          par:parseInt(c.par||72),
-          lat:parseFloat(c.latitude||c.lat||0)||null,
-          lng:parseFloat(c.longitude||c.lng||c.lon||0)||null
-        })).filter(c=>c.name!=='Unknown');
+        const raw=data.courses||[];
+        const list=raw.slice(0,10).map(c=>{
+          const maleTees=c.tees&&c.tees.male?c.tees.male:[];
+          const blueTee=maleTees.find(t=>(t.tee_name||'').toLowerCase().includes('blue'))||maleTees[0]||{};
+          return {
+            name:c.club_name||c.course_name||'Unknown',
+            location:[c.city,c.state_name,c.country_name].filter(Boolean).join(', '),
+            courseRating:parseFloat(blueTee.course_rating)||null,
+            slopeRating:parseFloat(blueTee.slope_rating)||null,
+            par:parseInt(blueTee.par)||72,
+            lat:c.location?parseFloat(c.location.latitude)||null:null,
+            lng:c.location?parseFloat(c.location.longitude)||null:null
+          };
+        }).filter(c=>c.name!=='Unknown');
         if(list.length){renderSearchResults(list);spinner.style.display='none';return;}
       }
-    }catch(e){}
+    }catch(e){console.log('GolfCourseAPI error:',e);}
   }
 
+  // Fallback to built-in database
+  const fallback=searchFallback(query);
+  if(fallback.length){
+    renderSearchResults(fallback);
+  } else {
+    results.innerHTML='<div style="padding:12px 14px;">'
+      +'<div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">No courses found for "'+query+'"</div>'
+      +'<div style="font-size:12px;color:var(--text-secondary);">Try a shorter search term or fill in the details manually below.</div>'
+      +((!GOLFAPI_KEY||GOLFAPI_KEY==='PASTE_YOUR_GOLFCOURSEAPI_KEY_HERE')
+        ? '<div style="font-size:12px;color:var(--blue);margin-top:8px;">💡 <b>Unlock 30,000 courses free:</b> Sign up at golfcourseapi.com, get your key, and paste it in the code where it says PASTE_YOUR_GOLFCOURSEAPI_KEY_HERE</div>'
+        : '')
+      +'</div>';
+    results.style.display='block';
+  }
+  spinner.style.display='none';
+}
+  
+  
   // Try Open Golf API (free, no key needed, good US coverage)
   try{
     const resp=await fetch('https://api.opengolf.dev/v1/courses/search?q='+encodeURIComponent(query)+'&limit=10');
