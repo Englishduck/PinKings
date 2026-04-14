@@ -1351,7 +1351,7 @@ async function runCourseSearch(query){
   results.style.display='none';
 
   // GolfCourseAPI — 30,000 courses, free with email signup at golfcourseapi.com
-  if(GOLFAPI_KEY && GOLFAPI_KEY !== 'PASTE_YOUR_GOLFCOURSEAPI_KEY_HERE'){
+  if(GOLFAPI_KEY && GOLFAPI_KEY !== 'XDPANYRQYNVHWNJOWZ3XY63JX4'){
     try{
       const resp=await fetch('https://api.golfcourseapi.com/v1/search?search_query='+encodeURIComponent(query),{
         headers:{'Authorization':'Key '+GOLFAPI_KEY}
