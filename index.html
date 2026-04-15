@@ -678,19 +678,44 @@ const getHcpIdx=ov=>{const v=parseFloat(ov);if(!isNaN(v))return v;if(profile?.ha
 const scoreColor=s=>s>=8.5?'#1a7a3f':s>=6.5?'#d4891a':s>=4.5?'#2a6db5':'#c5392b';
 const getScoreLabel=s=>{if(s>=9.5)return'Legendary';if(s>=8.5)return'Outstanding';if(s>=7.5)return'Excellent';if(s>=6.5)return'Great';if(s>=5.5)return'Good';if(s>=4.5)return'Average';if(s>=3)return'Below average';return'Poor';};
 const calcPinScore=(q,l)=>Math.min(10,Math.round((q*0.5+l*0.5)*10)/10);
-function showToast(msg,duration=3000){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),duration);}
+function showToast(msg,duration=4000){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>t.classList.remove('show'),duration);
+}
+function showError(msg){
+  showToast(msg,6000);
+  console.error('PinKings Error:',msg);
+}
 function timeAgo(iso){const m=Math.floor((Date.now()-new Date(iso))/60000);if(m<1)return'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h ago';const d=Math.floor(h/24);return d===1?'yesterday':d+'d ago';}
 
 // ── SUPABASE FETCH ──
 async function sb(path,method='GET',body=null,params=null){
   let url=SUPABASE_URL+'/rest/v1/'+path;
   if(params)url+='?'+params;
-  const opts={method,headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'}};
+  const opts={method,headers:{
+    'apikey':SUPABASE_KEY,
+    'Authorization':'Bearer '+SUPABASE_KEY,
+    'Content-Type':'application/json',
+    'Prefer':'return=representation',
+    'Accept':'application/json'
+  }};
   if(body)opts.body=JSON.stringify(body);
-  const r=await fetch(url,opts);
-  if(!r.ok&&r.status!==204){const err=await r.text();console.error('SB error:',r.status,err);throw new Error(err);}
-  if(r.status===204)return null;
-  return r.json();
+  try{
+    const r=await fetch(url,opts);
+    const text=await r.text();
+    if(!r.ok&&r.status!==204){
+      console.error('SB error:',r.status,text);
+      showError('Database error '+r.status+' — '+text.slice(0,100));
+      throw new Error(text);
+    }
+    if(r.status===204||!text)return null;
+    return JSON.parse(text);
+  }catch(e){
+    if(e.message&&e.message.includes('fetch')){showToast('Network error — check your connection.');}
+    throw e;
+  }
 }
 
 // ── AUTH ──
@@ -709,39 +734,71 @@ async function doSignup(){
   if(!pass||pass.length<6){showToast('Password must be at least 6 characters.');return;}
   const hcp=document.getElementById('s-hcp').value;
   const home=document.getElementById('s-home').value.trim();
-  // Check email not taken
+  const btn=document.querySelector('#form-signup .btn');
+  if(btn){btn.textContent='Creating account...';btn.disabled=true;}
   try{
-    const existing=await sb('profiles','GET',null,'email=eq.'+encodeURIComponent(email)+'&select=id');
-    if(existing&&existing.length>0){showToast('Email already registered. Please log in.');return;}
-  }catch(e){}
-  const clubId=Math.floor(Math.random()*6);
-  const newProfile={
-    email,pass_hash:btoa(pass),name:first+' '+last,first_name:first,
-    handicap:hcp?+hcp:null,home_course:home||null,club_id:clubId,
-    conquest_score:0,rank_title:'Peasant'
-  };
-  const res=await sb('profiles','POST',newProfile);
-  if(!res||!res[0]){showToast('Signup failed. Please try again.');return;}
-  profile=res[0];myId=profile.id;
-  saveLocal();
-  document.getElementById('pg-auth').style.display='none';
-  document.getElementById('pg-reveal').style.display='block';
-  startReveal(clubId);
+    // Check email not already taken
+    let existing=[];
+    try{existing=await sb('profiles','GET',null,'email=eq.'+encodeURIComponent(email)+'&select=id');}catch(e){}
+    if(existing&&existing.length>0){
+      showToast('Email already registered — please log in instead.');
+      if(btn){btn.textContent='Sign up & join a club';btn.disabled=false;}
+      return;
+    }
+    const clubId=Math.floor(Math.random()*6);
+    const newProfile={
+      email,
+      pass_hash:btoa(unescape(encodeURIComponent(pass))),
+      name:first+' '+last,
+      first_name:first,
+      handicap:hcp?+hcp:null,
+      home_course:home||null,
+      club_id:clubId,
+      conquest_score:0,
+      rank_title:'Peasant'
+    };
+    const res=await sb('profiles','POST',newProfile);
+    if(!res||!res[0]){showToast('Signup failed — please try again.');if(btn){btn.textContent='Sign up & join a club';btn.disabled=false;}return;}
+    profile=res[0];myId=profile.id;
+    saveLocal();
+    document.getElementById('pg-auth').style.display='none';
+    document.getElementById('pg-reveal').style.display='block';
+    startReveal(clubId);
+  }catch(e){
+    console.error('Signup error:',e);
+    showError('Signup failed: '+(e.message||'Unknown error. Open browser console for details.'));
+    if(btn){btn.textContent='Sign up & join a club';btn.disabled=false;}
+  }
 }
 
 async function doLogin(){
   const email=document.getElementById('l-email').value.trim().toLowerCase();
   const pass=document.getElementById('l-pass').value;
   if(!email||!pass){showToast('Please enter email and password.');return;}
+  const btn=document.querySelector('#form-login .btn');
+  if(btn){btn.textContent='Logging in...';btn.disabled=true;}
   try{
     const res=await sb('profiles','GET',null,'email=eq.'+encodeURIComponent(email)+'&select=*');
-    if(!res||!res.length){showToast('No account found with that email.');return;}
+    if(!res||!res.length){
+      showToast('No account found with that email. Please sign up first.');
+      if(btn){btn.textContent='Log in';btn.disabled=false;}
+      return;
+    }
     const p=res[0];
-    if(p.pass_hash&&p.pass_hash!==btoa(pass)){showToast('Incorrect password.');return;}
+    const hash=btoa(unescape(encodeURIComponent(pass)));
+    if(p.pass_hash&&p.pass_hash!==hash){
+      showToast('Incorrect password. Please try again.');
+      if(btn){btn.textContent='Log in';btn.disabled=false;}
+      return;
+    }
     profile=p;myId=p.id;
     saveLocal();
     await launchApp();
-  }catch(e){showToast('Login failed. Please try again.');console.error(e);}
+  }catch(e){
+    console.error('Login error:',e);
+    showError('Login failed: '+(e.message||'Check your connection. Open browser console for details.'));
+    if(btn){btn.textContent='Log in';btn.disabled=false;}
+  }
 }
 
 function saveLocal(){
