@@ -1148,7 +1148,7 @@ async function updateConquestScore(){
   const conquest=calcConquestFromOwned(outdoorOwned,simOwned);
   const rank=getRank(conquest);
   try{
-    await sb('profiles/'+myId,'PATCH',{conquest_score:conquest,rank_title:rank.title});
+    await sb('profiles','PATCH',{conquest_score:conquest,rank_title:rank.title},'id=eq.'+myId);
     profile.conquest_score=conquest;profile.rank_title=rank.title;
   }catch(e){console.error('updateConquest:',e);}
 }
@@ -1267,7 +1267,7 @@ function dragDrop(e,toIdx,toType){
 // ── EDIT / DELETE ──
 async function delCourse(id){
   const c=courses.find(x=>x.id===id);if(!c||!confirm('Remove "'+c.name+'"?'))return;
-  try{await sb('courses/'+id,'DELETE');courses=courses.filter(x=>x.id!==id);allCourses=allCourses.filter(x=>x.id!==id);renderCourses();showToast('"'+c.name+'" removed.');}catch(e){showToast('Failed to remove.');}
+  try{await sb('courses','DELETE',null,'id=eq.'+id);courses=courses.filter(x=>x.id!==id);allCourses=allCourses.filter(x=>x.id!==id);renderCourses();showToast('"'+c.name+'" removed.');}catch(e){showToast('Failed to remove.');}
 }
 function openEdit(id){
   const c=courses.find(x=>x.id===id);if(!c)return;editId=id;
@@ -1291,7 +1291,7 @@ async function saveEdit(){
   if(gross&&hi!=null){ch=calcCHcp(hi,sl,cr);net=calcNet(gross,ch);}
   const q=+document.getElementById('e-quality').value||5,l=+document.getElementById('e-layout').value||5;
   const upd={name:document.getElementById('e-name').value.trim(),location:document.getElementById('e-loc').value.trim()||null,date:document.getElementById('e-date').value||null,gross_score:gross,hcp_index:hi,course_hcp:ch,net_score:net,course_rating:cr,slope_rating:sl,notes:document.getElementById('e-notes').value.trim()||null,round_type:document.getElementById('e-type').value,quality:q,layout:l,pinkings_score:calcPinScore(q,l)};
-  try{await sb('courses/'+editId,'PATCH',upd);Object.assign(c,upd);showToast('"'+c.name+'" updated.');closeEdit();renderCourses();}catch(e){showToast('Update failed.');console.error(e);}
+  try{await sb('courses','PATCH',upd);Object.assign(c,upd);showToast('"'+c.name+'" updated.');closeEdit();renderCourses();}catch(e){showToast('Update failed.');console.error(e);}
 }
 
 // ── LEADERBOARD ──
@@ -1393,7 +1393,7 @@ function renderKingdom(){
 // ── ACTIVITY FEED ──
 async function markActivitySeen(){
   if(!profile)return;
-  try{await sb('profiles/'+myId,'PATCH',{last_seen_activity:new Date().toISOString()});const b=document.getElementById('n-badge');if(b)b.style.display='none';}catch(e){}
+  try{await sb('profiles','PATCH',{last_seen_activity:new Date().toISOString()},'id=eq.'+myId);const b=document.getElementById('n-badge');if(b)b.style.display='none';}catch(e){}
 }
 async function renderActivity(){
   const el=document.getElementById('activity-list');if(!el)return;
@@ -1428,14 +1428,17 @@ async function toggleReaction(activityId,emoji){
   if(already){
     act.reactions[emoji]=Math.max(0,(act.reactions[emoji]||1)-1);
     delete act.reactions_by_me[emoji];
-    try{await sb('reactions','DELETE',null,'activity_id=eq.'+activityId+'&user_id=eq.'+myId+'&emoji=eq.'+encodeURIComponent(emoji));}catch(e){}
+    try{await sb('reactions','DELETE',null,'activity_id=eq.'+activityId+'&user_id=eq.'+myId+'&emoji=eq.'+encodeURIComponent(emoji));}catch(e){console.error('reaction delete:',e);}
   }else{
     act.reactions[emoji]=(act.reactions[emoji]||0)+1;
     act.reactions_by_me[emoji]=true;
-    try{await sb('reactions','POST',{activity_id:activityId,user_id:myId,emoji});}catch(e){}
+    try{
+      // Upsert — insert or update if already exists
+      await sb('reactions','POST',{activity_id:activityId,user_id:myId,emoji},null,'on_conflict=activity_id,user_id,emoji');
+    }catch(e){console.error('reaction add:',e);}
   }
-  // Update reactions on activity record
-  try{await sb('activity/'+activityId,'PATCH',{reactions:act.reactions});}catch(e){}
+  // PATCH activity reactions — must use query param not path segment
+  try{await sb('activity','PATCH',{reactions:act.reactions},'id=eq.'+activityId);}catch(e){console.error('activity patch:',e);}
   renderActivity();
 }
 
@@ -1549,13 +1552,13 @@ async function sendFriendReq(friendId, friendName){
 }
 async function acceptFriend(requestId, fromId){
   try{
-    await sb('friends/'+requestId,'PATCH',{status:'accepted'});
+    await sb('friends','PATCH',{status:'accepted'});
     showToast('Friend accepted!');await loadFriends();renderFriends();
   }catch(e){showToast('Failed.');}
 }
 async function removeFriend(friendshipId){
   try{
-    await sb('friends/'+friendshipId,'DELETE');
+    await sb('friends','DELETE',null,'id=eq.'+friendshipId);
     showToast('Friend removed.');await loadFriends();renderFriends();
   }catch(e){showToast('Failed.');}
 }
@@ -1689,13 +1692,13 @@ async function handlePic(e){
   const reader=new FileReader();
   reader.onload=async ev=>{
     const pic=ev.target.result;
-    try{await sb('profiles/'+myId,'PATCH',{pic});profile.pic=pic;renderProfile();showToast('Photo updated!');}catch(err){showToast('Failed to save photo.');}
+    try{await sb('profiles','PATCH',{pic},'id=eq.'+myId);profile.pic=pic;renderProfile();showToast('Photo updated!');}catch(err){showToast('Failed to save photo.');}
   };reader.readAsDataURL(file);
 }
 async function saveProfile(){
   const name=document.getElementById('p-name').value.trim();if(!name){showToast('Name required.');return;}
   profile.name=name;profile.handicap=document.getElementById('p-hcp').value?+document.getElementById('p-hcp').value:null;profile.home_course=document.getElementById('p-home').value.trim()||null;
-  try{await sb('profiles/'+myId,'PATCH',{name:profile.name,handicap:profile.handicap,home_course:profile.home_course});showToast('Profile updated!');renderProfile();renderStats();}catch(e){showToast('Update failed.');}
+  try{await sb('profiles','PATCH',{name:profile.name,handicap:profile.handicap,home_course:profile.home_course},'id=eq.'+myId);showToast('Profile updated!');renderProfile();renderStats();}catch(e){showToast('Update failed.');}
 }
 function logOut(){if(!confirm('Log out?'))return;try{localStorage.removeItem('pk_profile');}catch(e){}profile=null;myId=null;document.getElementById('pg-app').style.display='none';document.getElementById('pg-auth').style.display='block';showForm('login');}
 
